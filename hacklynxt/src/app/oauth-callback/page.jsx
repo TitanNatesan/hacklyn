@@ -3,35 +3,67 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { authAPI } from "@/lib/api";
 import { Loader2 } from "lucide-react";
 
 function OAuthCallbackContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { handleOAuthCallback, isAuthenticated, user } = useAuth();
     const [error, setError] = useState(null);
     const [processing, setProcessing] = useState(true);
 
     useEffect(() => {
         const processCallback = async () => {
             try {
-                const result = await handleOAuthCallback();
+                // Read tokens from URL parameters (passed by Django)
+                const accessToken = searchParams.get('access');
+                const refreshToken = searchParams.get('refresh');
+                const userId = searchParams.get('user_id');
+                const email = searchParams.get('email');
+                const username = searchParams.get('username');
+                const firstName = searchParams.get('first_name');
+                const lastName = searchParams.get('last_name');
+                const isStaff = searchParams.get('is_staff') === 'true';
+                const profileCompleted = searchParams.get('profile_completed') === 'true';
+                const avatar = searchParams.get('avatar');
 
-                if (result.ok) {
-                    // Determine redirect based on user data
-                    const userData = result.data.user;
-
-                    if (userData?.is_staff) {
-                        router.push("/dashboard/admin");
-                    } else if (!userData?.profile_completed) {
-                        router.push("/complete-profile");
-                    } else {
-                        router.push("/dashboard");
-                    }
-                } else {
-                    setError(result.data?.error || "Authentication failed. Please try again.");
+                // Check if tokens exist in URL
+                if (!accessToken || !refreshToken) {
+                    setError("Authentication tokens not received. Please try again.");
                     setProcessing(false);
+                    return;
+                }
+
+                // Store tokens in localStorage
+                if (typeof window !== 'undefined') {
+                    localStorage.setItem('accessToken', accessToken);
+                    localStorage.setItem('refreshToken', refreshToken);
+                    localStorage.setItem('isAuthenticated', 'true');
+
+                    // Store user data
+                    const userData = {
+                        id: userId,
+                        email: email || '',
+                        username: username || '',
+                        first_name: firstName || '',
+                        last_name: lastName || '',
+                        is_staff: isStaff,
+                        profile_completed: profileCompleted,
+                        avatar: avatar || '',
+                    };
+                    localStorage.setItem('user', JSON.stringify(userData));
+                }
+
+                // Clear URL parameters for security (remove tokens from URL)
+                window.history.replaceState({}, '', '/oauth-callback');
+
+                // Redirect based on user role/profile status
+                if (isStaff) {
+                    router.push("/dashboard/admin");
+                } else if (!profileCompleted) {
+                    router.push("/complete-profile");
+                } else {
+                    router.push("/dashboard");
                 }
             } catch (err) {
                 console.error("OAuth callback error:", err);
@@ -41,7 +73,7 @@ function OAuthCallbackContent() {
         };
 
         processCallback();
-    }, [handleOAuthCallback, router]);
+    }, [searchParams, router]);
 
     if (error) {
         return (

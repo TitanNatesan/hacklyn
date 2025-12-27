@@ -182,6 +182,7 @@ SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
 ACCOUNT_USERNAME_REQUIRED = False  # Don't require username for social auth
 ACCOUNT_EMAIL_REQUIRED = True
 SOCIALACCOUNT_ADAPTER = "index.adapters.CustomSocialAccountAdapter"
+ACCOUNT_ADAPTER = "index.adapters.CustomAccountAdapter"
 
 # OAuth Provider Configuration
 SOCIALACCOUNT_PROVIDERS = {
