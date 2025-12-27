@@ -176,6 +176,13 @@ LOGOUT_REDIRECT_URL = FRONTEND_URL
 SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_LOGIN_ON_GET = True
 
+# Social Account specific settings to skip signup form
+SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
+SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
+ACCOUNT_USERNAME_REQUIRED = False  # Don't require username for social auth
+ACCOUNT_EMAIL_REQUIRED = True
+SOCIALACCOUNT_ADAPTER = "index.adapters.CustomSocialAccountAdapter"
+
 # OAuth Provider Configuration
 SOCIALACCOUNT_PROVIDERS = {
     "google": {

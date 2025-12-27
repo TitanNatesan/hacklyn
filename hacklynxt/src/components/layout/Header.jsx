@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { authAPI } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -29,20 +29,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export function Header() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [user, setUser] = useState(null);
-    const [isAdmin, setIsAdmin] = useState(false);
+    const { user, isAuthenticated, isLoading, logout } = useAuth();
     const pathname = usePathname();
     const router = useRouter();
 
-    useEffect(() => {
-        // Check auth state on client side
-        const authStatus = authAPI.isAuthenticated();
-        setIsLoggedIn(authStatus);
-        const userData = authAPI.getUser();
-        setUser(userData);
-        setIsAdmin(authStatus && userData?.is_staff);
-    }, [pathname]);
+    const isAdmin = isAuthenticated && user?.is_staff;
 
     const getInitials = () => {
         if (!user) return "JD";
@@ -54,53 +45,38 @@ export function Header() {
 
     const isActive = (path) => pathname === path;
 
-    const navLinks = isLoggedIn ? [
+    const navLinks = isAuthenticated ? [
         { href: isAdmin ? "/dashboard/admin" : "/dashboard", label: "Dashboard" },
+        { href: "/events", label: "Events" },
         { href: "/about", label: "About" },
         { href: "/contact", label: "Contact" },
     ] : [
+        { href: "/events", label: "Explore Events" },
         { href: "/about", label: "About" },
         { href: "/contact", label: "Contact" },
     ];
 
     const handleSignOut = () => {
-        authAPI.logout();
-        setIsLoggedIn(false);
-        setUser(null);
+        logout();
+        toast.success("Signed out successfully");
         router.push("/");
     };
 
-    // Enforce Session Security
+    // Redirect authenticated users from auth page to dashboard
     useEffect(() => {
-        if (isLoggedIn) {
-            if (isAdmin) {
-                if (!pathname.startsWith("/dashboard/admin")) {
-                    toast.warning("Admin session active. Please sign out to access other pages.");
-                    router.replace("/dashboard/admin");
-                }
-            } else {
-                const isAllowed =
-                    pathname.startsWith("/dashboard") ||
-                    pathname.startsWith("/events") ||
-                    pathname === "/complete-profile" ||
-                    pathname === "/about" ||
-                    pathname === "/contact";
-
-                if (!isAllowed) {
-                    if (pathname === "/" || pathname.startsWith("/auth")) {
-                        router.replace("/dashboard");
-                    }
-                }
+        if (!isLoading && isAuthenticated) {
+            if (pathname === "/" || pathname.startsWith("/auth")) {
+                router.replace(isAdmin ? "/dashboard/admin" : "/dashboard");
             }
         }
-    }, [isLoggedIn, isAdmin, pathname, router]);
+    }, [isAuthenticated, isLoading, isAdmin, pathname, router]);
 
     return (
         <header className="fixed top-0 left-0 right-0 z-50 glass-effect border-b border-border">
             <div className="container mx-auto px-4">
                 <div className="flex items-center justify-between h-16">
                     {/* Logo */}
-                    <Link href={isLoggedIn ? (isAdmin ? "/dashboard/admin" : "/dashboard") : "/"} className="flex items-center gap-2 group">
+                    <Link href={isAuthenticated ? (isAdmin ? "/dashboard/admin" : "/dashboard") : "/"} className="flex items-center gap-2 group">
                         <Image
                             src="/hacklyn.png"
                             alt="Hacklyn"
@@ -131,7 +107,7 @@ export function Header() {
 
                     {/* Desktop Auth Buttons */}
                     <div className="hidden md:flex items-center gap-3">
-                        {isLoggedIn ? (
+                        {isAuthenticated ? (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" className="relative h-8 w-8 rounded-full">
@@ -207,7 +183,7 @@ export function Header() {
                 {mobileMenuOpen && (
                     <div className="md:hidden py-4 border-t border-border animate-fade-in">
                         <nav className="flex flex-col gap-2">
-                            {isLoggedIn && !isAdmin && (
+                            {isAuthenticated && !isAdmin && (
                                 <Link
                                     href="/dashboard"
                                     className={`px-4 py-3 rounded-lg text-sm font-medium transition-colors ${isActive("/dashboard")
@@ -233,7 +209,7 @@ export function Header() {
                                 </Link>
                             ))}
                             <div className="flex flex-col gap-2 pt-4 border-t border-border mt-2">
-                                {isLoggedIn ? (
+                                {isAuthenticated ? (
                                     <>
                                         <div className="px-4 py-2 flex items-center gap-3 mb-2">
                                             <Avatar className="h-8 w-8">

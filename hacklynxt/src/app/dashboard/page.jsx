@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,25 +20,17 @@ import {
     Star,
     Target
 } from "lucide-react";
-import { authAPI, eventsAPI } from "@/lib/api";
-import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { eventsAPI } from "@/lib/api";
 
-export default function StudentDashboard() {
+function DashboardContent() {
     const router = useRouter();
-    const [user, setUser] = useState(null);
+    const { user } = useAuth();
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const checkAuth = async () => {
-            if (!authAPI.isAuthenticated()) {
-                router.push("/auth");
-                return;
-            }
-
-            const userData = authAPI.getUser();
-            setUser(userData);
-
+        const fetchEvents = async () => {
             try {
                 const { ok, data } = await eventsAPI.getEvents();
                 if (ok) {
@@ -50,8 +43,8 @@ export default function StudentDashboard() {
             }
         };
 
-        checkAuth();
-    }, [router]);
+        fetchEvents();
+    }, []);
 
     const stats = [
         { label: "Events Participated", value: "3", icon: Calendar, color: "text-primary" },
@@ -213,5 +206,13 @@ export default function StudentDashboard() {
                 </div>
             </div>
         </DashboardLayout>
+    );
+}
+
+export default function StudentDashboard() {
+    return (
+        <ProtectedRoute>
+            <DashboardContent />
+        </ProtectedRoute>
     );
 }
