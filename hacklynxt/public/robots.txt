@@ -1,0 +1,12 @@
+# Hacklyn - robots.txt
+# https://www.robotstxt.org/
+
+User-agent: *
+Allow: /
+Disallow: /dashboard/
+Disallow: /complete-profile/
+Disallow: /oauth-callback/
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://hacklyn.vercel.app/sitemap.xml

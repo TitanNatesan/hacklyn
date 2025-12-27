@@ -97,6 +97,7 @@ function AuthContent() {
                 username: registerForm.email.split("@")[0],
                 email: registerForm.email,
                 password: registerForm.password,
+                password_confirm: registerForm.confirmPassword,
                 first_name: firstName,
                 last_name: lastName,
             });

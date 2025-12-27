@@ -236,6 +236,17 @@ export const authAPI = {
         if (typeof window === 'undefined') return;
         localStorage.setItem('user', JSON.stringify(user));
     },
+
+    async validateToken() {
+        try {
+            const user = await this.getMe();
+            this.setUser(user);
+            return { ok: true, user };
+        } catch (error) {
+            this.logout();
+            return { ok: false, error: 'Token validation failed' };
+        }
+    },
 };
 
 // ==================== Profile API ====================
