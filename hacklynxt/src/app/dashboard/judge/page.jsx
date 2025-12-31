@@ -43,7 +43,7 @@ export default function JudgeDashboard() {
         { label: "Assigned Events", value: 3, icon: Calendar, color: "text-primary" },
         { label: "Pending Reviews", value: 12, icon: Clock, color: "text-warning" },
         { label: "Completed Reviews", value: 28, icon: CheckCircle2, color: "text-success" },
-        { label: "Avg. Score Given", value: "8.2", icon: Star, color: "text-purple-500" },
+        { label: "Avg. Score Given", value: "8.2", icon: Star, color: "text-bright-sky-600" },
     ];
 
     const assignedEvents = [
@@ -100,10 +100,10 @@ export default function JudgeDashboard() {
                 {/* Stats Grid */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     {stats.map((stat) => (
-                        <Card key={stat.label}>
+                        <Card key={stat.label} className="shadow-soft hover:shadow-prominent transition-shadow duration-300">
                             <CardContent className="p-6">
                                 <div className="flex items-center gap-4">
-                                    <div className={`p-3 rounded-xl bg-secondary ${stat.color}`}>
+                                    <div className={`p-3 rounded-xl bg-neutral-100 ${stat.color}`}>
                                         <stat.icon className="h-6 w-6" />
                                     </div>
                                     <div>
@@ -171,7 +171,7 @@ export default function JudgeDashboard() {
                                                 {Math.round((event.reviewed / event.totalSubmissions) * 100)}%
                                             </span>
                                         </div>
-                                        <Progress value={(event.reviewed / event.totalSubmissions) * 100} className="h-2" />
+                                        <Progress value={(event.reviewed / event.totalSubmissions) * 100} className="h-2" indicatorClassName="bg-primary" />
                                     </div>
                                 </div>
                             ))}

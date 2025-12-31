@@ -72,7 +72,7 @@ export function Header() {
     }, [isAuthenticated, isLoading, isAdmin, pathname, router]);
 
     return (
-        <header className="fixed top-0 left-0 right-0 z-50 glass-effect border-b border-border">
+        <header className="fixed top-0 left-0 right-0 z-50 glass-effect border-b border-border shadow-soft">
             <div className="container mx-auto px-4">
                 <div className="flex items-center justify-between h-16">
                     {/* Logo */}
@@ -95,9 +95,9 @@ export function Header() {
                             <Link
                                 key={link.href}
                                 href={link.href}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isActive(link.href)
-                                    ? "bg-secondary text-foreground"
-                                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isActive(link.href)
+                                    ? "bg-primary text-primary-foreground shadow-soft"
+                                    : "text-muted-foreground hover:text-foreground hover:bg-neutral-100"
                                     }`}
                             >
                                 {link.label}
@@ -112,7 +112,7 @@ export function Header() {
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                                         <Avatar className="h-8 w-8">
-                                            <AvatarImage src={user?.avatar || ""} alt={user?.username} />
+                                            <AvatarImage src={user?.profile_picture || user?.avatar || ""} alt={user?.username} />
                                             <AvatarFallback>
                                                 {getInitials()}
                                             </AvatarFallback>
@@ -148,7 +148,10 @@ export function Header() {
                                         </>
                                     )}
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
+                                    <DropdownMenuItem
+                                        onClick={handleSignOut}
+                                        className="text-destructive focus:bg-red-600 focus:text-white hover:bg-red-600 hover:text-white cursor-pointer transition-colors"
+                                    >
                                         <LogOut className="mr-2 h-4 w-4" />
                                         <span>Sign out</span>
                                     </DropdownMenuItem>
@@ -213,7 +216,7 @@ export function Header() {
                                     <>
                                         <div className="px-4 py-2 flex items-center gap-3 mb-2">
                                             <Avatar className="h-8 w-8">
-                                                <AvatarImage src={user?.avatar || ""} />
+                                                <AvatarImage src={user?.profile_picture || user?.avatar || ""} />
                                                 <AvatarFallback>{getInitials()}</AvatarFallback>
                                             </Avatar>
                                             <div>
@@ -221,7 +224,11 @@ export function Header() {
                                                 <p className="text-xs text-muted-foreground">{user?.email}</p>
                                             </div>
                                         </div>
-                                        <Button variant="outline" onClick={handleSignOut} className="w-full text-destructive hover:text-destructive">
+                                        <Button
+                                            variant="outline"
+                                            onClick={handleSignOut}
+                                            className="w-full text-destructive hover:bg-red-600 hover:text-white transition-colors"
+                                        >
                                             <LogOut className="mr-2 h-4 w-4" />
                                             Sign Out
                                         </Button>

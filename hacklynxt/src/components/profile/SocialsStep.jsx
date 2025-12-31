@@ -44,7 +44,7 @@ export function SocialsStep() {
                     render={({ field }) => (
                         <FormItem>
                             <FormLabel className="flex items-center gap-2">
-                                <Linkedin className="w-4 h-4 text-blue-600" /> LinkedIn
+                                <Linkedin className="w-4 h-4 text-primary" /> LinkedIn
                             </FormLabel>
                             <FormControl>
                                 <Input placeholder="https://linkedin.com/in/username" {...field} />
@@ -60,7 +60,7 @@ export function SocialsStep() {
                     render={({ field }) => (
                         <FormItem>
                             <FormLabel className="flex items-center gap-2">
-                                <Twitter className="w-4 h-4 text-sky-500" /> Twitter (Optional)
+                                <Twitter className="w-4 h-4 text-accent" /> Twitter (Optional)
                             </FormLabel>
                             <FormControl>
                                 <Input placeholder="https://twitter.com/username" {...field} />

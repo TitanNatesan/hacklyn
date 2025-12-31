@@ -16,10 +16,12 @@ import { Separator } from "@/components/ui/separator";
 import { Github, Mail, Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { authAPI } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 function AuthContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { login, register, isAuthenticated, isLoading: authLoading, user } = useAuth();
     const mode = searchParams.get("mode") || "login";
 
     const [activeTab, setActiveTab] = useState(mode);
@@ -51,14 +53,17 @@ function AuthContent() {
         setIsLoading(true);
 
         try {
-            const { ok, data } = await authAPI.login(loginForm.email, loginForm.password);
+            const result = await login(loginForm.email, loginForm.password);
+            const { ok, data } = result;
 
             if (ok) {
                 toast.success("Welcome back!");
 
-                if (data.user?.is_staff) {
+                // Check user from the result data
+                const userData = data.user;
+                if (userData?.is_staff) {
                     router.push("/dashboard/admin");
-                } else if (!data.user?.profile_completed) {
+                } else if (!userData?.profile_completed) {
                     router.push("/complete-profile");
                 } else {
                     router.push("/dashboard");
@@ -93,7 +98,7 @@ function AuthContent() {
             const firstName = nameParts[0];
             const lastName = nameParts.slice(1).join(" ");
 
-            const { ok, data } = await authAPI.register({
+            const result = await register({
                 username: registerForm.email.split("@")[0],
                 email: registerForm.email,
                 password: registerForm.password,
@@ -101,6 +106,7 @@ function AuthContent() {
                 first_name: firstName,
                 last_name: lastName,
             });
+            const { ok, data } = result;
 
             if (ok) {
                 toast.success("Account created successfully!");
@@ -125,11 +131,11 @@ function AuthContent() {
     };
 
     return (
-        <div className="min-h-screen flex flex-col bg-gradient-to-b from-secondary/30 to-background">
+        <div className="min-h-screen flex flex-col bg-gradient-to-b from-secondary to-background">
             <Header />
 
             <main className="flex-1 flex items-center justify-center py-24 px-4">
-                <Card className="w-full max-w-md shadow-elevated animate-fade-up">
+                <Card className="w-full max-w-md shadow-elevated animate-fade-up border-none bg-card/80 backdrop-blur-xl">
                     <CardHeader className="text-center">
                         <Link href="/" className="inline-flex items-center justify-center gap-2 mb-4">
                             <Image src="/hacklyn.png" alt="Hacklyn" width={40} height={40} className="object-contain" />
@@ -311,7 +317,7 @@ function AuthContent() {
                                     <Separator className="w-full" />
                                 </div>
                                 <div className="relative flex justify-center text-xs uppercase">
-                                    <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+                                    <span className="bg-transparent px-2 text-muted-foreground">Or continue with</span>
                                 </div>
                             </div>
 

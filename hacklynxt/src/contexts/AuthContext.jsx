@@ -97,6 +97,13 @@ export function AuthProvider({ children }) {
         return result;
     }, []);
 
+    const loginSuccess = useCallback((userData) => {
+        setUser(userData);
+        setIsAuthenticated(true);
+        // Also update in API/localStorage just to be safe/consistent
+        authAPI.setUser(userData);
+    }, []);
+
     const value = {
         user,
         isAuthenticated,
@@ -106,6 +113,7 @@ export function AuthProvider({ children }) {
         logout,
         refreshUser,
         handleOAuthCallback,
+        loginSuccess,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -3,56 +3,88 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { authAPI } from "@/lib/api";
-import { Loader2 } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 function OAuthCallbackContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { loginSuccess } = useAuth();
     const [error, setError] = useState(null);
     const [processing, setProcessing] = useState(true);
+    const [retrying, setRetrying] = useState(false);
 
-    useEffect(() => {
-        const processCallback = async () => {
-            try {
-                // Read tokens from URL parameters (passed by Django)
-                const accessToken = searchParams.get('access');
-                const refreshToken = searchParams.get('refresh');
-                const userId = searchParams.get('user_id');
-                const email = searchParams.get('email');
-                const username = searchParams.get('username');
-                const firstName = searchParams.get('first_name');
-                const lastName = searchParams.get('last_name');
-                const isStaff = searchParams.get('is_staff') === 'true';
-                const profileCompleted = searchParams.get('profile_completed') === 'true';
-                const avatar = searchParams.get('avatar');
+    const processCallback = async () => {
+        try {
+            // Read tokens from URL parameters (passed by Django)
+            let accessToken = searchParams.get('access');
+            let refreshToken = searchParams.get('refresh');
+            let userId = searchParams.get('user_id');
+            let email = searchParams.get('email');
+            let username = searchParams.get('username');
+            let firstName = searchParams.get('first_name');
+            let lastName = searchParams.get('last_name');
+            let isStaff = searchParams.get('is_staff') === 'true';
+            let profileCompleted = searchParams.get('profile_completed') === 'true';
+            let avatar = searchParams.get('avatar');
 
-                // Check if tokens exist in URL
-                if (!accessToken || !refreshToken) {
-                    setError("Authentication tokens not received. Please try again.");
-                    setProcessing(false);
-                    return;
+            // If tokens are not in URL, try to fetch via API (session-based fallback)
+            if (!accessToken || !refreshToken) {
+                console.log("No tokens in URL, attempting API fallback...");
+                try {
+                    const result = await authAPI.handleOAuthCallback();
+                    if (result.ok && result.data.tokens) {
+                        accessToken = result.data.tokens.access;
+                        refreshToken = result.data.tokens.refresh;
+
+                        // Extract user data from API response
+                        const user = result.data.user;
+                        if (user) {
+                            userId = user.id;
+                            email = user.email || '';
+                            username = user.username || '';
+                            firstName = user.first_name || '';
+                            lastName = user.last_name || '';
+                            isStaff = user.is_staff || false;
+                            profileCompleted = user.profile_completed || false;
+                            avatar = user.avatar || '';
+                        }
+                    }
+                } catch (apiError) {
+                    console.error("API fallback failed:", apiError);
                 }
+            }
 
-                // Store tokens in localStorage
-                if (typeof window !== 'undefined') {
-                    localStorage.setItem('accessToken', accessToken);
-                    localStorage.setItem('refreshToken', refreshToken);
-                    localStorage.setItem('isAuthenticated', 'true');
+            // Final check for tokens
+            if (!accessToken || !refreshToken) {
+                setError("Authentication tokens not received. Please try again.");
+                setProcessing(false);
+                return;
+            }
 
-                    // Store user data
-                    const userData = {
-                        id: userId,
-                        email: email || '',
-                        username: username || '',
-                        first_name: firstName || '',
-                        last_name: lastName || '',
-                        is_staff: isStaff,
-                        profile_completed: profileCompleted,
-                        avatar: avatar || '',
-                    };
-                    localStorage.setItem('user', JSON.stringify(userData));
-                }
+            // Store tokens in localStorage
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('accessToken', accessToken);
+                localStorage.setItem('refreshToken', refreshToken);
+                localStorage.setItem('isAuthenticated', 'true');
+
+                // Create user object
+                const userData = {
+                    id: userId,
+                    email: email || '',
+                    username: username || '',
+                    first_name: firstName || '',
+                    last_name: lastName || '',
+                    is_staff: isStaff,
+                    profile_completed: profileCompleted,
+                    avatar: avatar || '',
+                };
+                localStorage.setItem('user', JSON.stringify(userData));
+
+                // Update global auth state immediately
+                loginSuccess(userData);
 
                 // Clear URL parameters for security (remove tokens from URL)
                 window.history.replaceState({}, '', '/oauth-callback');
@@ -65,15 +97,28 @@ function OAuthCallbackContent() {
                 } else {
                     router.push("/dashboard");
                 }
-            } catch (err) {
-                console.error("OAuth callback error:", err);
-                setError("An error occurred during authentication. Please try again.");
-                setProcessing(false);
             }
-        };
+        } catch (err) {
+            console.error("OAuth callback error:", err);
+            setError("An error occurred during authentication. Please try again.");
+            setProcessing(false);
+        }
+    };
 
+    useEffect(() => {
         processCallback();
-    }, [searchParams, router]);
+    }, [searchParams]);
+
+    const handleRetry = async () => {
+        setRetrying(true);
+        setError(null);
+        setProcessing(true);
+
+        // Small delay then retry
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await processCallback();
+        setRetrying(false);
+    };
 
     if (error) {
         return (
@@ -86,12 +131,30 @@ function OAuthCallbackContent() {
                     </div>
                     <h1 className="text-2xl font-bold text-foreground">Authentication Failed</h1>
                     <p className="text-muted-foreground">{error}</p>
-                    <button
-                        onClick={() => router.push("/auth")}
-                        className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-                    >
-                        Return to Login
-                    </button>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                        <Button
+                            onClick={handleRetry}
+                            variant="outline"
+                            disabled={retrying}
+                        >
+                            {retrying ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Retrying...
+                                </>
+                            ) : (
+                                <>
+                                    <RefreshCw className="mr-2 h-4 w-4" />
+                                    Retry
+                                </>
+                            )}
+                        </Button>
+                        <Button
+                            onClick={() => router.push("/auth")}
+                        >
+                            Return to Login
+                        </Button>
+                    </div>
                 </div>
             </div>
         );

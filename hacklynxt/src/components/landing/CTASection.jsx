@@ -9,15 +9,15 @@ export function CTASection() {
         <section className="py-24 bg-primary relative overflow-hidden">
             {/* Background Pattern */}
             <div className="absolute inset-0">
-                <div className="absolute top-0 left-0 w-64 h-64 bg-primary-foreground/5 rounded-full blur-3xl" />
-                <div className="absolute bottom-0 right-0 w-96 h-96 bg-primary-foreground/5 rounded-full blur-3xl" />
+                <div className="absolute top-0 left-0 w-64 h-64 bg-bright-sky-400/20 rounded-full blur-[100px]" />
+                <div className="absolute bottom-0 right-0 w-96 h-96 bg-cobalt-blue-400/20 rounded-full blur-[100px]" />
             </div>
 
             <div className="container mx-auto px-4 relative z-10">
                 <div className="max-w-3xl mx-auto text-center">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-foreground/10 mb-8">
-                        <Sparkles className="w-4 h-4 text-primary-foreground" />
-                        <span className="text-sm font-medium text-primary-foreground">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 mb-8 backdrop-blur-sm border border-white/20">
+                        <Sparkles className="w-4 h-4 text-white" />
+                        <span className="text-sm font-medium text-white">
                             Ready to Get Started?
                         </span>
                     </div>

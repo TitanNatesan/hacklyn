@@ -53,8 +53,9 @@ const roles = [
 
 export function RolesSection() {
     return (
-        <section className="py-24">
-            <div className="container mx-auto px-4">
+        <section className="py-24 bg-white relative">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-french-blue-50/20 rounded-full blur-[150px] pointer-events-none" />
+            <div className="container mx-auto px-4 relative z-10">
                 {/* Section Header */}
                 <div className="text-center max-w-2xl mx-auto mb-16">
                     <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-4">
@@ -78,8 +79,8 @@ export function RolesSection() {
                         >
                             <CardContent className="p-6">
                                 <div className="flex items-start justify-between mb-4">
-                                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                                        <role.icon className="w-6 h-6 text-primary" />
+                                    <div className="w-12 h-12 rounded-xl bg-neutral-50 border border-neutral-100 flex items-center justify-center">
+                                        <role.icon className="w-6 h-6 text-french-blue-600" />
                                     </div>
                                     <Badge variant={role.badge}>{role.badge}</Badge>
                                 </div>
@@ -89,7 +90,7 @@ export function RolesSection() {
                                 <ul className="space-y-2">
                                     {role.features.map((feature) => (
                                         <li key={feature} className="flex items-start gap-2 text-sm text-muted-foreground">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                                            <div className="w-1.5 h-1.5 rounded-full bg-bright-sky-500 mt-1.5 shrink-0" />
                                             {feature}
                                         </li>
                                     ))}

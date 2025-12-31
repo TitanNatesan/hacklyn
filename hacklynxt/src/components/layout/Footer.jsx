@@ -26,14 +26,14 @@ export function Footer() {
     };
 
     return (
-        <footer className="border-t border-border bg-secondary/30">
+        <footer className="border-t border-border bg-neutral-50/50">
             <div className="container mx-auto px-4 py-12">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
                     {/* Brand */}
                     <div className="col-span-2 md:col-span-1">
                         <Link href="/" className="flex items-center gap-2 mb-4">
                             <Image src="/hacklyn.png" alt="Hacklyn" width={36} height={36} className="object-contain" />
-                            <span className="font-display font-bold text-xl">Hacklyn</span>
+                            <span className="font-display font-bold text-xl tracking-tight">Hacklyn</span>
                         </Link>
                         <p className="text-sm text-muted-foreground mb-4">
                             The ultimate platform for managing campus events and hackathons.
@@ -41,19 +41,19 @@ export function Footer() {
                         <div className="flex items-center gap-3">
                             <a
                                 href="#"
-                                className="w-9 h-9 rounded-lg bg-secondary flex items-center justify-center hover:bg-secondary/80 transition-colors"
+                                className="w-9 h-9 rounded-lg bg-neutral-100 flex items-center justify-center hover:bg-primary hover:text-white transition-all duration-200"
                             >
                                 <Twitter className="w-4 h-4" />
                             </a>
                             <a
                                 href="#"
-                                className="w-9 h-9 rounded-lg bg-secondary flex items-center justify-center hover:bg-secondary/80 transition-colors"
+                                className="w-9 h-9 rounded-lg bg-neutral-100 flex items-center justify-center hover:bg-primary hover:text-white transition-all duration-200"
                             >
                                 <Github className="w-4 h-4" />
                             </a>
                             <a
                                 href="#"
-                                className="w-9 h-9 rounded-lg bg-secondary flex items-center justify-center hover:bg-secondary/80 transition-colors"
+                                className="w-9 h-9 rounded-lg bg-neutral-100 flex items-center justify-center hover:bg-primary hover:text-white transition-all duration-200"
                             >
                                 <Linkedin className="w-4 h-4" />
                             </a>

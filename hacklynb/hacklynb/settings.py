@@ -20,43 +20,60 @@ DEBUG = os.environ.get("DEBUG", "True").lower() == "true"
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
 # Frontend URL for OAuth redirects
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:8080")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
 # Jazzmin Admin UI Configuration
 JAZZMIN_SETTINGS = {
     "site_title": "Hacklyn Admin",
     "site_header": "Hacklyn",
-    "site_brand": "Hacklyn",
+    "site_brand": "Hacklyn Platform",
     "site_logo": None,
     "login_logo": None,
     "site_icon": None,
-    "welcome_sign": "Welcome to Hacklyn Admin",
-    "copyright": "Hacklyn",
-    "search_model": ["index.User", "index.Event"],
+    "welcome_sign": "Welcome to Hacklyn Command Center",
+    "copyright": "Hacklyn 2024",
+    "search_model": ["index.User", "index.Event", "index.Profile", "index.Project"],
+    "user_avatar": "get_avatar_url",
     "topmenu_links": [
         {"name": "Home", "url": "admin:index", "permissions": ["auth.view_user"]},
-        {"name": "API Docs", "url": "/api/", "new_window": True},
+        {"name": "API Documentation", "url": "/api/", "new_window": True},
         {"model": "index.User"},
         {"model": "index.Event"},
+        {"name": "Support", "url": "https://github.com/TitanNatesan/hacklyn/issues", "new_window": True},
     ],
     "show_sidebar": True,
     "navigation_expanded": True,
+    "hide_apps": [],
+    "hide_models": [],
+    "order_with_respect_to": ["index.User", "index.Profile", "index.Event", "index.EventApplication"],
     "icons": {
         "auth": "fas fa-users-cog",
-        "auth.user": "fas fa-user",
-        "index.User": "fas fa-users",
+        "auth.Group": "fas fa-users-slash",
+        "index.User": "fas fa-user-astronaut",
+        "index.Skill": "fas fa-code",
+        "index.Institution": "fas fa-university",
+        "index.Company": "fas fa-building",
         "index.Profile": "fas fa-id-card",
-        "index.Event": "fas fa-calendar-alt",
-        "index.EventApplication": "fas fa-file-alt",
-        "index.Team": "fas fa-user-friends",
-        "index.Submission": "fas fa-upload",
+        "index.Education": "fas fa-graduation-cap",
+        "index.WorkExperience": "fas fa-briefcase",
+        "index.Project": "fas fa-rocket",
+        "index.Event": "fas fa-calendar-star",
+        "index.Prize": "fas fa-trophy",
+        "index.Sponsor": "fas fa-handshake",
+        "index.EventApplication": "fas fa-file-signature",
+        "index.Team": "fas fa-users-viewfinder",
+        "index.TeamMember": "fas fa-user-plus",
+        "index.Submission": "fas fa-cloud-upload-alt",
     },
     "default_icon_parents": "fas fa-chevron-circle-right",
     "default_icon_children": "fas fa-circle",
     "related_modal_active": True,
+    "custom_css": None,
+    "custom_js": None,
     "use_google_fonts_cdn": True,
     "show_ui_builder": False,
     "changeform_format": "horizontal_tabs",
+    "changeform_format_overrides": {"auth.user": "collapsible", "auth.group": "vertical_tabs"},
 }
 
 JAZZMIN_UI_TWEAKS = {
@@ -66,12 +83,16 @@ JAZZMIN_UI_TWEAKS = {
     "brand_small_text": False,
     "brand_colour": "navbar-dark",
     "accent": "accent-primary",
-    "navbar": "navbar-dark navbar-primary",
+    "navbar": "navbar-dark",
     "no_navbar_border": False,
+    "navbar_fixed": True,
+    "layout_fixed": True,
+    "footer_fixed": False,
+    "sidebar_fixed": True,
     "sidebar": "sidebar-dark-primary",
     "sidebar_nav_small_text": False,
     "sidebar_disable_expand": False,
-    "sidebar_nav_child_indent": False,
+    "sidebar_nav_child_indent": True,
     "sidebar_nav_compact_style": False,
     "sidebar_nav_legacy_style": False,
     "sidebar_nav_flat_style": False,
@@ -83,8 +104,8 @@ JAZZMIN_UI_TWEAKS = {
         "info": "btn-info",
         "warning": "btn-warning",
         "danger": "btn-danger",
-        "success": "btn-success",
-    },
+        "success": "btn-success"
+    }
 }
 
 # Application definition
@@ -100,6 +121,7 @@ INSTALLED_APPS = [
     # Third party apps
     "rest_framework",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     # OAuth / Social Auth
     "allauth",
@@ -176,11 +198,9 @@ LOGOUT_REDIRECT_URL = FRONTEND_URL
 SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_LOGIN_ON_GET = True
 
-# Social Account specific settings to skip signup form
+# Social Account settings to skip signup form effectively mapped via ACCOUNT_SIGNUP_FIELDS and adapters.
 SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
 SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
-ACCOUNT_USERNAME_REQUIRED = False  # Don't require username for social auth
-ACCOUNT_EMAIL_REQUIRED = True
 SOCIALACCOUNT_ADAPTER = "index.adapters.CustomSocialAccountAdapter"
 ACCOUNT_ADAPTER = "index.adapters.CustomAccountAdapter"
 
@@ -244,6 +264,7 @@ CORS_ALLOWED_ORIGINS = os.environ.get(
     "CORS_ORIGINS",
     "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173",
 ).split(",")
+CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = DEBUG
 
@@ -266,6 +287,7 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
@@ -277,3 +299,14 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     X_FRAME_OPTIONS = "DENY"
+
+
+# Email Configuration (SMTP)
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() == 'true'
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'noreply@hacklyn.com')
+

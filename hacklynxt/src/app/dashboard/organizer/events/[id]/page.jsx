@@ -188,7 +188,7 @@ export default function OrganizerEventManagePage() {
                                     <CardTitle className="text-sm font-medium text-muted-foreground">Approved</CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="text-3xl font-bold text-emerald-600">
+                                    <div className="text-3xl font-bold text-success">
                                         {approvedCount}
                                     </div>
                                 </CardContent>
@@ -198,7 +198,7 @@ export default function OrganizerEventManagePage() {
                                     <CardTitle className="text-sm font-medium text-muted-foreground">Pending Review</CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="text-3xl font-bold text-amber-500">
+                                    <div className="text-3xl font-bold text-warning">
                                         {pendingCount}
                                     </div>
                                 </CardContent>
@@ -315,8 +315,7 @@ export default function OrganizerEventManagePage() {
                                                                         <XCircle className="w-4 h-4 mr-2" /> Reject
                                                                     </Button>
                                                                     <Button
-                                                                        variant="default"
-                                                                        className="bg-emerald-600 hover:bg-emerald-700"
+                                                                        variant="success"
                                                                         onClick={() => handleStatusChange(app.id, 'approve')}
                                                                         disabled={app.status === 'approved'}
                                                                     >

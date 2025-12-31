@@ -37,10 +37,10 @@ import { eventsAPI, authAPI } from "@/lib/api";
 export default function ApplyEventPage() {
     const params = useParams();
     const router = useRouter();
-    const id = params.id;
+    const slugOrId = params.id; // Route param can be slug or id
 
     const [event, setEvent] = useState(null);
-    const [activeTab, setActiveTab] = useState("application");
+    const [activeTab, setActiveTab] = useState("overview"); // Default to overview
     const [activeSection, setActiveSection] = useState(null);
     const [submissionProgress, setSubmissionProgress] = useState(0);
 
@@ -90,9 +90,16 @@ export default function ApplyEventPage() {
         // Fetch event details
         const fetchEvent = async () => {
             try {
-                const eventData = await eventsAPI.get(id);
+                // Try slug-based lookup first, fallback to id if it looks numeric
+                let eventData;
+                if (/^\d+$/.test(slugOrId)) {
+                    eventData = await eventsAPI.get(slugOrId);
+                } else {
+                    eventData = await eventsAPI.getBySlug(slugOrId);
+                }
                 setEvent({
                     id: eventData.id,
+                    slug: eventData.slug,
                     eventName: eventData.name,
                     organizer: eventData.organizer_name,
                     organizerName: eventData.organizer_name,
@@ -107,7 +114,8 @@ export default function ApplyEventPage() {
             } catch (error) {
                 // Use sample data for demo
                 setEvent({
-                    id: id,
+                    id: slugOrId,
+                    slug: slugOrId,
                     eventName: "AI Innovation Challenge 2024",
                     organizer: "Tech University",
                     startDate: "2024-02-15",
@@ -121,7 +129,7 @@ export default function ApplyEventPage() {
         };
 
         fetchEvent();
-    }, [id, router, profileSections]);
+    }, [slugOrId, router, profileSections]);
 
     if (!event) {
         return (
@@ -202,9 +210,11 @@ export default function ApplyEventPage() {
                         <Tabs value={activeTab} className="space-y-6">
                             <TabsContent value="overview">
                                 <Card className="border-none shadow-sm">
-                                    <CardContent className="p-8 prose max-w-none text-muted-foreground">
+                                    <CardContent className="p-8 prose prose-neutral max-w-none dark:prose-invert">
                                         <h2 className="text-2xl font-bold text-foreground mb-4 not-prose">About the Event</h2>
-                                        <p>{event.about || event.description || "No description provided."}</p>
+                                        <div className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                                            {event.about || event.description || "No description provided."}
+                                        </div>
                                     </CardContent>
                                 </Card>
                             </TabsContent>
@@ -213,8 +223,8 @@ export default function ApplyEventPage() {
                                 <Card className="border-none shadow-sm">
                                     <CardContent className="p-8">
                                         <h2 className="text-2xl font-bold text-foreground mb-6">Prizes & Rewards</h2>
-                                        <div className="p-6 bg-yellow-50 rounded-xl border border-yellow-100 flex items-start gap-4">
-                                            <Trophy className="w-8 h-8 text-yellow-600 flex-shrink-0" />
+                                        <div className="p-6 bg-warning/5 rounded-xl border border-warning/10 flex items-start gap-4">
+                                            <Trophy className="w-8 h-8 text-warning flex-shrink-0" />
                                             <div>
                                                 <p className="font-semibold text-lg text-foreground">{event.prizes || "Prizes to be announced."}</p>
                                                 <p className="text-muted-foreground mt-1">Compete for the grand prize pool!</p>
@@ -277,7 +287,7 @@ export default function ApplyEventPage() {
                                                     className={`p-6 flex items-center gap-6 cursor-pointer hover:bg-muted/50 transition-colors ${activeSection === section.id ? 'bg-muted/30' : ''}`}
                                                     onClick={() => toggleSection(section.id)}
                                                 >
-                                                    <div className={`w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center ${section.completed ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground'}`}>
+                                                    <div className={`w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center ${section.completed ? 'bg-success text-white' : 'bg-muted text-muted-foreground'}`}>
                                                         {section.completed ? <CheckCircle2 className="w-6 h-6" /> : <div className="w-3 h-3 bg-current rounded-full" />}
                                                     </div>
 
@@ -323,10 +333,10 @@ export default function ApplyEventPage() {
                                 {/* Status Header */}
                                 <div className="p-6 pb-0">
                                     <div className="flex items-start gap-4">
-                                        <div className="w-12 h-16 bg-emerald-50 rounded-lg border border-emerald-100 flex flex-col items-center justify-center gap-1 flex-shrink-0">
-                                            <div className="w-8 h-1 bg-emerald-500 rounded-full" />
-                                            <div className="w-8 h-1 bg-emerald-500 rounded-full" />
-                                            <div className="w-6 h-1 bg-emerald-500 rounded-full" />
+                                        <div className="w-12 h-16 bg-success/5 rounded-lg border border-success/10 flex flex-col items-center justify-center gap-1 flex-shrink-0">
+                                            <div className="w-8 h-1 bg-success rounded-full" />
+                                            <div className="w-8 h-1 bg-success rounded-full" />
+                                            <div className="w-6 h-1 bg-success rounded-full" />
                                         </div>
                                         <div>
                                             <p className="text-xs font-bold text-muted-foreground tracking-wider uppercase mb-1">APPLICATION FILLED</p>
@@ -338,7 +348,7 @@ export default function ApplyEventPage() {
 
                                 {/* Timeline */}
                                 <div className="p-6 space-y-0 relative">
-                                    <div className="absolute left-[39px] top-8 bottom-12 w-0.5 bg-primary/20" />
+                                    <div className="absolute left-[39px] top-8 bottom-12 w-1 bg-primary/30 rounded-full" />
 
                                     <div className="flex gap-4 relative mb-8">
                                         <div className="w-3 h-3 rounded-full border-2 border-primary bg-background relative z-10 mt-1.5 ml-1.5" />

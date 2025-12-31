@@ -69,7 +69,7 @@ export function EventSubmissionStep() {
 
             {/* Participation Type */}
             <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900">Participation Type</h3>
+                <h3 className="text-lg font-semibold text-foreground">Participation Type</h3>
                 <RadioGroup
                     defaultValue="individual"
                     value={participationType}
@@ -82,9 +82,9 @@ export function EventSubmissionStep() {
                             htmlFor="individual"
                             className="flex flex-col items-center justify-between rounded-xl border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 cursor-pointer transition-all"
                         >
-                            <User className="mb-3 h-6 w-6 text-gray-500 peer-data-[state=checked]:text-primary" />
+                            <User className="mb-3 h-6 w-6 text-muted-foreground peer-data-[state=checked]:text-primary" />
                             <span className="font-semibold">Individual</span>
-                            <span className="text-xs text-gray-500 mt-1">Participate solo</span>
+                            <span className="text-xs text-muted-foreground mt-1">Participate solo</span>
                         </Label>
                     </div>
                     <div>
@@ -93,9 +93,9 @@ export function EventSubmissionStep() {
                             htmlFor="team"
                             className="flex flex-col items-center justify-between rounded-xl border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 cursor-pointer transition-all"
                         >
-                            <Users className="mb-3 h-6 w-6 text-gray-500 peer-data-[state=checked]:text-primary" />
+                            <Users className="mb-3 h-6 w-6 text-muted-foreground peer-data-[state=checked]:text-primary" />
                             <span className="font-semibold">Team</span>
-                            <span className="text-xs text-gray-500 mt-1">Form a squad (2-4 members)</span>
+                            <span className="text-xs text-muted-foreground mt-1">Form a squad (2-4 members)</span>
                         </Label>
                     </div>
                 </RadioGroup>
@@ -107,13 +107,13 @@ export function EventSubmissionStep() {
                     <div className="grid md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                             <Label>Full Name</Label>
-                            <Input value={profileData.fullName || ""} disabled className="bg-gray-50" />
-                            <p className="text-xs text-gray-500">Fetched from your profile</p>
+                            <Input value={profileData.fullName || ""} disabled className="bg-muted" />
+                            <p className="text-xs text-muted-foreground">Fetched from your profile</p>
                         </div>
                         <div className="space-y-2">
                             <Label>College / Organization</Label>
                             <div className="relative">
-                                <Building2 className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                                <Building2 className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input
                                     className="pl-9"
                                     placeholder="Institute Name"
@@ -124,13 +124,13 @@ export function EventSubmissionStep() {
                         </div>
                         <div className="space-y-2">
                             <Label>Email</Label>
-                            <Input value={profileData.email || ""} disabled className="bg-gray-50" />
-                            <p className="text-xs text-gray-500">Fetched from your profile</p>
+                            <Input value={profileData.email || ""} disabled className="bg-muted" />
+                            <p className="text-xs text-muted-foreground">Fetched from your profile</p>
                         </div>
                         <div className="space-y-2">
                             <Label>Mobile</Label>
                             <div className="relative">
-                                <Phone className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                                <Phone className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input
                                     className="pl-9"
                                     placeholder="9876543210"
@@ -163,7 +163,7 @@ export function EventSubmissionStep() {
                         <div className="space-y-2">
                             <Label>College / Organization</Label>
                             <div className="relative">
-                                <Building2 className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                                <Building2 className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input className="pl-9" placeholder="Institute Name" />
                             </div>
                         </div>
@@ -178,7 +178,7 @@ export function EventSubmissionStep() {
                         </div>
 
                         {teamMembers.length === 0 && (
-                            <div className="text-center p-8 border-2 border-dashed border-gray-200 rounded-lg text-gray-500 text-sm">
+                            <div className="text-center p-8 border-2 border-dashed border-neutral-200 rounded-lg text-muted-foreground text-sm">
                                 No members added yet. Add your teammates!
                             </div>
                         )}
@@ -214,7 +214,7 @@ export function EventSubmissionStep() {
                                         </div>
                                         <div className="md:col-span-2">
                                             {member.verified ? (
-                                                <div className="h-10 flex items-center text-emerald-600 text-sm gap-1">
+                                                <div className="h-10 flex items-center text-success text-sm gap-1">
                                                     <CheckCircle2 className="w-4 h-4" /> Verified
                                                 </div>
                                             ) : (

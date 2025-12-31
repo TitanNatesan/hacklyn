@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Trash2, FolderGit2, Trophy, Github } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { AutocompleteMulti } from "@/components/ui/autocomplete";
 
 export function ProjectsStep() {
     const { control, formState: { errors } } = useFormContext();
@@ -40,7 +41,7 @@ export function ProjectsStep() {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <FolderGit2 className="h-5 w-5 text-primary" />
-                        <h3 className="text-xl font-semibold">Projects</h3>
+                        <h3 className="text-xl font-semibold">Projects (Optional)</h3>
                     </div>
                     <Button
                         type="button"
@@ -116,7 +117,12 @@ export function ProjectsStep() {
                                         <FormItem>
                                             <FormLabel>Technologies Used</FormLabel>
                                             <FormControl>
-                                                <Input placeholder="React, Node.js, MongoDB..." {...field} />
+                                                <AutocompleteMulti
+                                                    type="skill"
+                                                    placeholder="Add tech (React, Docker, etc.)..."
+                                                    value={field.value || []}
+                                                    onChange={field.onChange}
+                                                />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>

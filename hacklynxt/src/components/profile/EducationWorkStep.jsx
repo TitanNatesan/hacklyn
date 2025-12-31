@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Trash2, GraduationCap, Briefcase } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { AutocompleteSingle } from "@/components/ui/autocomplete";
+import { MonthPicker } from "@/components/ui/month-picker";
 
 export function EducationWorkStep() {
     const { control, formState: { errors } } = useFormContext();
@@ -82,7 +84,12 @@ export function EducationWorkStep() {
                                         <FormItem>
                                             <FormLabel>School / University</FormLabel>
                                             <FormControl>
-                                                <Input placeholder="University of Technology" {...field} />
+                                                <AutocompleteSingle
+                                                    type="institution"
+                                                    placeholder="Search or create university..."
+                                                    value={field.value}
+                                                    onChange={field.onChange}
+                                                />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -108,7 +115,11 @@ export function EducationWorkStep() {
                                         <FormItem>
                                             <FormLabel>Start Date</FormLabel>
                                             <FormControl>
-                                                <Input type="month" {...field} />
+                                                <MonthPicker
+                                                    value={field.value}
+                                                    onChange={field.onChange}
+                                                    placeholder="Select start date"
+                                                />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -121,7 +132,11 @@ export function EducationWorkStep() {
                                         <FormItem>
                                             <FormLabel>End Date</FormLabel>
                                             <FormControl>
-                                                <Input type="month" {...field} />
+                                                <MonthPicker
+                                                    value={field.value}
+                                                    onChange={field.onChange}
+                                                    placeholder="Select end date"
+                                                />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -196,7 +211,12 @@ export function EducationWorkStep() {
                                             <FormItem>
                                                 <FormLabel>Company Name</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="Acme Corp" {...field} />
+                                                    <AutocompleteSingle
+                                                        type="company"
+                                                        placeholder="Search or create company..."
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                    />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -209,7 +229,11 @@ export function EducationWorkStep() {
                                             <FormItem>
                                                 <FormLabel>Start Date</FormLabel>
                                                 <FormControl>
-                                                    <Input type="month" {...field} />
+                                                    <MonthPicker
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        placeholder="Select start date"
+                                                    />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -222,7 +246,11 @@ export function EducationWorkStep() {
                                             <FormItem>
                                                 <FormLabel>End Date</FormLabel>
                                                 <FormControl>
-                                                    <Input type="month" {...field} />
+                                                    <MonthPicker
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        placeholder="Select end date"
+                                                    />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>

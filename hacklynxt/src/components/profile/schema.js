@@ -6,7 +6,7 @@ export const profileSchema = z.object({
     fullName: z.string().min(2, "Name is required"),
     tagline: z.string().min(2, "Tagline is required"),
     bio: z.string().min(10, "Bio should be at least 10 characters"),
-    skills: z.string().min(1, "At least one skill is required"),
+    skills: z.array(z.string()).min(1, "At least one skill is required"),
     location: z.string().min(2, "Location is required"),
 
     // Education
@@ -32,10 +32,10 @@ export const profileSchema = z.object({
     projects: z.array(z.object({
         title: z.string().min(1, "Title is required"),
         description: z.string().min(1, "Description is required"),
-        technologies: z.string().min(1, "Technologies are required"),
+        technologies: z.array(z.string()).min(1, "Technologies are required"),
         link: z.string().url("Must be a valid URL").optional().or(z.literal("")),
         role: z.string().min(1, "Role is required"),
-    })).min(1, "Please add at least one project"),
+    })).default([]),
 
     // Hackathons
     hackathons: z.array(z.object({

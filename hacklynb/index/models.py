@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.utils.text import slugify
 
 
 class User(AbstractUser):
@@ -8,7 +9,12 @@ class User(AbstractUser):
     Custom User model - simplified to just User and Admin.
     Admin access is controlled by is_staff flag (Django built-in).
     """
+    # Override to ensure blank is properly handled and prevent IntegrityError
+    first_name = models.CharField(max_length=150, blank=True, default='')
+    last_name = models.CharField(max_length=150, blank=True, default='')
+    
     profile_completed = models.BooleanField(default=False)
+    email_verified = models.BooleanField(default=False)
     avatar = models.URLField(blank=True, null=True, help_text="Avatar URL from OAuth provider")
     
     def __str__(self):
@@ -18,6 +24,59 @@ class User(AbstractUser):
     def display_name(self):
         return self.get_full_name() or self.username
 
+    @property
+    def get_avatar_url(self):
+        if hasattr(self, 'profile') and self.profile.profile_picture:
+            return self.profile.profile_picture.url
+        return self.avatar
+
+
+class EmailOTP(models.Model):
+    """OTP for email verification and password reset"""
+    PURPOSE_CHOICES = [
+        ('email_verify', 'Email Verification'),
+        ('password_reset', 'Password Reset'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='email_otps')
+    otp = models.CharField(max_length=6)
+    purpose = models.CharField(max_length=20, choices=PURPOSE_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    is_used = models.BooleanField(default=False)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"OTP for {self.user.email} ({self.purpose})"
+    
+    def is_valid(self):
+        from django.utils import timezone
+        return not self.is_used and self.expires_at > timezone.now()
+
+
+class Skill(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    
+    def __str__(self):
+        return self.name
+
+
+class Institution(models.Model):
+    name = models.CharField(max_length=200, unique=True)
+    
+    def __str__(self):
+        return self.name
+
+
+class Company(models.Model):
+    name = models.CharField(max_length=200, unique=True)
+    
+    def __str__(self):
+        return self.name
+
+
 
 class Profile(models.Model):
     """Extended user profile information"""
@@ -25,7 +84,7 @@ class Profile(models.Model):
     profile_picture = models.ImageField(upload_to='profiles/', blank=True, null=True)
     tagline = models.CharField(max_length=200, blank=True)
     bio = models.TextField(blank=True)
-    skills = models.TextField(blank=True, help_text="Comma-separated skills")
+    skills = models.ManyToManyField(Skill, blank=True)
     location = models.CharField(max_length=100, blank=True)
     achievements = models.TextField(blank=True)
     
@@ -46,7 +105,7 @@ class Education(models.Model):
     """User's education history"""
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='education')
     degree = models.CharField(max_length=200)
-    school = models.CharField(max_length=200)
+    institution = models.ForeignKey(Institution, on_delete=models.CASCADE, related_name='education_entries', null=True, blank=True)
     start_date = models.CharField(max_length=20, blank=True)
     end_date = models.CharField(max_length=20, blank=True)
     current = models.BooleanField(default=False)
@@ -55,14 +114,14 @@ class Education(models.Model):
         verbose_name_plural = "Education"
     
     def __str__(self):
-        return f"{self.degree} at {self.school}"
+        return f"{self.degree} at {self.institution}"
 
 
 class WorkExperience(models.Model):
     """User's work experience"""
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='work_experience')
     job_title = models.CharField(max_length=200)
-    company = models.CharField(max_length=200)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='experience_entries', null=True, blank=True)
     start_date = models.CharField(max_length=20, blank=True)
     end_date = models.CharField(max_length=20, blank=True)
     description = models.TextField(blank=True)
@@ -77,7 +136,7 @@ class Project(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='projects')
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
-    technologies = models.TextField(blank=True, help_text="Comma-separated technologies")
+    technologies = models.ManyToManyField(Skill, blank=True, related_name='project_technologies')
     link = models.URLField(blank=True)
     role = models.CharField(max_length=100, blank=True)
     
@@ -106,6 +165,7 @@ class Event(models.Model):
     
     # Basic info
     name = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=250, unique=True, blank=True, help_text="URL-friendly identifier (auto-generated)")
     tagline = models.CharField(max_length=300, blank=True)
     description = models.TextField()
     logo = models.ImageField(upload_to='event_logos/', blank=True, null=True)
@@ -135,6 +195,7 @@ class Event(models.Model):
     
     # Event details
     tracks = models.TextField(blank=True, help_text="Comma-separated tracks/themes")
+    themes = models.TextField(blank=True, help_text="Comma-separated themes")
     rules = models.TextField(blank=True)
     eligibility = models.TextField(blank=True, help_text="Who can participate")
     
@@ -153,6 +214,19 @@ class Event(models.Model):
     
     def __str__(self):
         return self.name
+    
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            # Generate base slug from name
+            base_slug = slugify(self.name)
+            slug = base_slug
+            counter = 1
+            # Ensure uniqueness
+            while Event.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+            self.slug = slug
+        super().save(*args, **kwargs)
     
     @property
     def participants_count(self):

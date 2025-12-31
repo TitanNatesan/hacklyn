@@ -46,7 +46,7 @@ const features = [
 
 export function FeaturesSection() {
     return (
-        <section className="py-24 bg-secondary/30">
+        <section className="py-24 bg-neutral-50/40 border-y border-neutral-100">
             <div className="container mx-auto px-4">
                 {/* Section Header */}
                 <div className="text-center max-w-2xl mx-auto mb-16">
@@ -69,9 +69,9 @@ export function FeaturesSection() {
                             className="group animate-fade-up"
                             style={{ animationDelay: `${index * 100}ms` }}
                         >
-                            <CardContent className="p-6">
-                                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
-                                    <feature.icon className="w-6 h-6 text-primary" />
+                            <CardContent className="p-8">
+                                <div className="w-14 h-14 rounded-2xl bg-neutral-50 border border-neutral-100 flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-french-blue-600 group-hover:text-white transition-all duration-300 shadow-sm">
+                                    <feature.icon className="w-7 h-7 text-french-blue-600 group-hover:text-inherit" />
                                 </div>
                                 <h3 className="font-display text-lg font-semibold text-foreground mb-2">
                                     {feature.title}

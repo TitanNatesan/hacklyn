@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import (
-    Profile, Education, WorkExperience, Project,
+    Profile, Education, WorkExperience, Project, Skill, Institution, Company,
     Event, Prize, Sponsor, EventApplication, Team, TeamMember, Submission
 )
 
@@ -12,15 +12,25 @@ class UserSerializer(serializers.ModelSerializer):
     """Simplified user serializer - no role field"""
     display_name = serializers.CharField(read_only=True)
     is_admin = serializers.SerializerMethodField()
+    profile_picture = serializers.SerializerMethodField()
     
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 
-                  'display_name', 'avatar', 'profile_completed', 'is_admin', 'date_joined']
+                  'display_name', 'avatar', 'profile_picture', 'profile_completed', 
+                  'email_verified', 'is_admin', 'date_joined']
         read_only_fields = ['id', 'date_joined', 'is_admin']
     
     def get_is_admin(self, obj):
         return obj.is_staff
+
+    def get_profile_picture(self, obj):
+        if hasattr(obj, 'profile') and obj.profile.profile_picture:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.profile.profile_picture.url)
+            return obj.profile.profile_picture.url
+        return None
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -49,19 +59,45 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return user
 
 
+class SkillSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Skill
+        fields = ['id', 'name']
+
+
+class InstitutionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Institution
+        fields = ['id', 'name']
+
+
+class CompanySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Company
+        fields = ['id', 'name']
+
+
 class EducationSerializer(serializers.ModelSerializer):
+    institution = InstitutionSerializer(read_only=True)
+    institution_name = serializers.CharField(source='institution.name', read_only=True)
+    
     class Meta:
         model = Education
-        fields = ['id', 'degree', 'school', 'start_date', 'end_date', 'current']
+        fields = ['id', 'degree', 'institution', 'institution_name', 'start_date', 'end_date', 'current']
 
 
 class WorkExperienceSerializer(serializers.ModelSerializer):
+    company = CompanySerializer(read_only=True)
+    company_name = serializers.CharField(source='company.name', read_only=True)
+    
     class Meta:
         model = WorkExperience
-        fields = ['id', 'job_title', 'company', 'start_date', 'end_date', 'description', 'current']
+        fields = ['id', 'job_title', 'company', 'company_name', 'start_date', 'end_date', 'description', 'current']
 
 
 class ProjectSerializer(serializers.ModelSerializer):
+    technologies = SkillSerializer(many=True, read_only=True)
+    
     class Meta:
         model = Project
         fields = ['id', 'title', 'description', 'technologies', 'link', 'role']
@@ -71,6 +107,7 @@ class ProfileSerializer(serializers.ModelSerializer):
     education = EducationSerializer(many=True, read_only=True)
     work_experience = WorkExperienceSerializer(many=True, read_only=True)
     projects = ProjectSerializer(many=True, read_only=True)
+    skills = SkillSerializer(many=True, read_only=True)
     user = UserSerializer(read_only=True)
     
     class Meta:
@@ -79,6 +116,36 @@ class ProfileSerializer(serializers.ModelSerializer):
                   'location', 'achievements', 'github', 'linkedin', 'twitter', 
                   'website', 'education', 'work_experience', 'projects', 
                   'created_at', 'updated_at']
+    
+    def update(self, instance, validated_data):
+        """
+        Custom update to handle skills Many-to-Many relationship.
+        Skills are read_only in serializer but handled here manually.
+        """
+        # Handle skills separately from request data
+        request = self.context.get('request')
+        skills_data = request.data.get('skills', None) if request else None
+        
+        if skills_data is not None:
+            # Clear existing skills
+            instance.skills.clear()
+            
+            # Process skills (list of strings or objects)
+            if isinstance(skills_data, list):
+                for skill_item in skills_data:
+                    skill_name = skill_item if isinstance(skill_item, str) else skill_item.get('name', '')
+                    if skill_name:
+                        skill, _ = Skill.objects.get_or_create(name=skill_name)
+                        instance.skills.add(skill)
+        
+        # Update other fields
+        for field, value in validated_data.items():
+            if field not in ['skills', 'education', 'work_experience', 'projects']:
+                setattr(instance, field, value)
+        
+        instance.save()
+        return instance
+
 
 
 class PrizeSerializer(serializers.ModelSerializer):
@@ -100,10 +167,10 @@ class EventListSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Event
-        fields = ['id', 'name', 'tagline', 'logo', 'cover_image', 'organizer',
+        fields = ['id', 'slug', 'name', 'tagline', 'logo', 'cover_image', 'organizer',
                   'organizer_name', 'start_date', 'end_date', 'registration_end',
                   'mode', 'city', 'status', 'is_featured', 'prize_pool',
-                  'participants_count', 'created_at']
+                  'participants_count', 'tracks', 'themes', 'created_at']
     
     def get_participants_count(self, obj):
         return getattr(obj, 'participants_count', 0) or obj.applications.filter(status='approved').count()
@@ -121,11 +188,11 @@ class EventDetailSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Event
-        fields = ['id', 'name', 'tagline', 'description', 'logo', 'cover_image',
+        fields = ['id', 'slug', 'name', 'tagline', 'description', 'logo', 'cover_image',
                   'organizer', 'organizer_name', 'organizer_email', 'website', 'discord_link',
                   'registration_start', 'registration_end', 'start_date', 'end_date',
                   'mode', 'venue', 'city', 'team_min', 'team_max', 'max_participants',
-                  'tracks', 'rules', 'eligibility', 'prize_pool', 'prizes', 'sponsors',
+                  'tracks', 'themes', 'rules', 'eligibility', 'prize_pool', 'prizes', 'sponsors',
                   'status', 'is_featured', 'participants_count', 'pending_applications_count',
                   'user_has_applied', 'user_application_status', 'created_at', 'updated_at']
     
@@ -153,11 +220,12 @@ class EventCreateSerializer(serializers.ModelSerializer):
     """For creating/updating events"""
     class Meta:
         model = Event
-        fields = ['name', 'tagline', 'description', 'logo', 'cover_image',
+        fields = ['id', 'slug', 'name', 'tagline', 'description', 'logo', 'cover_image',
                   'organizer_name', 'organizer_email', 'website', 'discord_link',
                   'registration_start', 'registration_end', 'start_date', 'end_date',
                   'mode', 'venue', 'city', 'team_min', 'team_max', 'max_participants',
-                  'tracks', 'rules', 'eligibility', 'prize_pool', 'status', 'is_featured']
+                  'tracks', 'themes', 'rules', 'eligibility', 'prize_pool', 'status', 'is_featured']
+        read_only_fields = ['slug']
     
     def create(self, validated_data):
         validated_data['organizer'] = self.context['request'].user

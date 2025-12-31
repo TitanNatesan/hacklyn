@@ -119,7 +119,7 @@ export default function AdminDashboard() {
         { label: "Total Users", value: stats.totalUsers || "150+", icon: Users, color: "text-primary" },
         { label: "Total Events", value: stats.totalEvents || "25", icon: Calendar, color: "text-success" },
         { label: "Pending Approval", value: stats.pendingEvents || "3", icon: Clock, color: "text-warning" },
-        { label: "Active Events", value: stats.activeEvents || "8", icon: CheckCircle2, color: "text-purple-500" },
+        { label: "Active Events", value: stats.activeEvents || "8", icon: CheckCircle2, color: "text-bright-sky-600" },
     ];
 
     if (loading) {
@@ -149,10 +149,10 @@ export default function AdminDashboard() {
                 {/* Stats Grid */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     {statCards.map((stat) => (
-                        <Card key={stat.label}>
+                        <Card key={stat.label} className="shadow-soft hover:shadow-prominent transition-shadow duration-300">
                             <CardContent className="p-6">
                                 <div className="flex items-center gap-4">
-                                    <div className={`p-3 rounded-xl bg-secondary ${stat.color}`}>
+                                    <div className={`p-3 rounded-xl bg-neutral-100 ${stat.color}`}>
                                         <stat.icon className="h-6 w-6" />
                                     </div>
                                     <div>

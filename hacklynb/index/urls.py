@@ -10,8 +10,15 @@ urlpatterns = [
     path('auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('auth/me/', views.CurrentUserView.as_view(), name='current_user'),
     
+    # Email OTP
+    path('auth/email/send-otp/', views.SendEmailOTPView.as_view(), name='send_email_otp'),
+    path('auth/email/verify-otp/', views.VerifyEmailOTPView.as_view(), name='verify_email_otp'),
+    path('auth/password/forgot/', views.ForgotPasswordView.as_view(), name='forgot_password'),
+    path('auth/password/reset/', views.ResetPasswordView.as_view(), name='reset_password'),
+    
     # Profile
     path('profile/', views.ProfileView.as_view(), name='profile'),
+    path('profile/complete/', views.ProfileCompleteView.as_view(), name='profile_complete'),
     path('profile/<str:username>/', views.ProfileDetailView.as_view(), name='profile_detail'),
     path('profile/education/', views.EducationListCreateView.as_view(), name='education_list'),
     path('profile/education/<int:pk>/', views.EducationDetailView.as_view(), name='education_detail'),
@@ -25,6 +32,7 @@ urlpatterns = [
     path('events/featured/', views.FeaturedEventsView.as_view(), name='featured_events'),
     path('events/my/', views.MyEventsView.as_view(), name='my_events'),
     path('events/<int:pk>/', views.EventDetailView.as_view(), name='event_detail'),
+    path('events/by-slug/<slug:slug>/', views.EventBySlugView.as_view(), name='event_by_slug'),
     path('events/<int:pk>/prizes/', views.PrizeListCreateView.as_view(), name='event_prizes'),
     path('events/<int:pk>/sponsors/', views.SponsorListCreateView.as_view(), name='event_sponsors'),
     
@@ -46,4 +54,7 @@ urlpatterns = [
     
     # Dashboard
     path('dashboard/stats/', views.DashboardStatsView.as_view(), name='dashboard_stats'),
+
+    # Autocomplete
+    path('autocomplete/', views.AutocompleteView.as_view(), name='autocomplete'),
 ]

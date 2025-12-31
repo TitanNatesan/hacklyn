@@ -24,6 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { eventsAPI } from "@/lib/api";
+import { DatePicker } from "@/components/ui/date-picker";
 
 const steps = [
     { id: "details", title: "Event Details", icon: Info, description: "Basic Info & Organizer Details" },
@@ -47,6 +48,8 @@ export default function OrganizeEventPage() {
         socialLink: "",
 
         // Step 2
+        registrationStart: "",
+        registrationEnd: "",
         startDate: "",
         endDate: "",
         mode: "offline",
@@ -128,7 +131,7 @@ export default function OrganizeEventPage() {
 
                 {/* Stepper */}
                 <div className="relative">
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-secondary -z-10 rounded-full" />
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-neutral-100 -z-10 rounded-full" />
                     <div
                         className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-primary -z-10 rounded-full transition-all duration-500"
                         style={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}
@@ -144,8 +147,8 @@ export default function OrganizeEventPage() {
                                 <div key={step.id} className="flex flex-col items-center gap-2 bg-background p-2 rounded-lg">
                                     <div
                                         className={cn(
-                                            "w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300",
-                                            isActive ? "bg-primary border-primary text-primary-foreground" : "bg-secondary border-border text-muted-foreground",
+                                            "w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300 shadow-soft",
+                                            isActive ? "bg-primary border-primary text-primary-foreground" : "bg-neutral-50 border-border text-muted-foreground",
                                             isCurrent && "ring-4 ring-primary/20"
                                         )}
                                     >
@@ -164,7 +167,7 @@ export default function OrganizeEventPage() {
                 </div>
 
                 {/* Form Content */}
-                <Card className="border-muted/50 shadow-lg">
+                <Card className="shadow-elevated border-none bg-card/80 backdrop-blur-xl">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             {steps[currentStep].title}
@@ -210,11 +213,11 @@ export default function OrganizeEventPage() {
                                     <div className="space-y-2">
                                         <Label>Event Logo & Cover</Label>
                                         <div className="flex gap-4">
-                                            <div className="w-24 h-24 border-2 border-dashed rounded-lg flex flex-col items-center justify-center bg-secondary/30 cursor-pointer hover:bg-secondary/50 transition-colors">
+                                            <div className="w-24 h-24 border-2 border-dashed rounded-lg flex flex-col items-center justify-center bg-neutral-50 cursor-pointer hover:bg-neutral-100 transition-colors">
                                                 <Upload className="w-5 h-5 text-muted-foreground mb-1" />
                                                 <span className="text-[10px] text-muted-foreground">Logo</span>
                                             </div>
-                                            <div className="flex-1 h-24 border-2 border-dashed rounded-lg flex flex-col items-center justify-center bg-secondary/30 cursor-pointer hover:bg-secondary/50 transition-colors">
+                                            <div className="flex-1 h-24 border-2 border-dashed rounded-lg flex flex-col items-center justify-center bg-neutral-50 cursor-pointer hover:bg-neutral-100 transition-colors">
                                                 <Upload className="w-6 h-6 text-muted-foreground mb-2" />
                                                 <span className="text-xs text-muted-foreground">Upload Cover Image (1920x1080)</span>
                                             </div>
@@ -275,26 +278,34 @@ export default function OrganizeEventPage() {
                                     <div className="grid md:grid-cols-2 gap-4">
                                         <div className="space-y-2">
                                             <Label>Registration Start</Label>
-                                            <Input type="datetime-local" />
+                                            <DatePicker
+                                                value={formData.registrationStart}
+                                                onChange={(val) => handleChange("registrationStart", val)}
+                                                placeholder="Pick start date"
+                                            />
                                         </div>
                                         <div className="space-y-2">
                                             <Label>Registration End</Label>
-                                            <Input type="datetime-local" />
+                                            <DatePicker
+                                                value={formData.registrationEnd}
+                                                onChange={(val) => handleChange("registrationEnd", val)}
+                                                placeholder="Pick end date"
+                                            />
                                         </div>
                                         <div className="space-y-2">
                                             <Label>Event Start *</Label>
-                                            <Input
-                                                type="datetime-local"
+                                            <DatePicker
                                                 value={formData.startDate}
-                                                onChange={(e) => handleChange("startDate", e.target.value)}
+                                                onChange={(val) => handleChange("startDate", val)}
+                                                placeholder="Pick event start date"
                                             />
                                         </div>
                                         <div className="space-y-2">
                                             <Label>Event End *</Label>
-                                            <Input
-                                                type="datetime-local"
+                                            <DatePicker
                                                 value={formData.endDate}
-                                                onChange={(e) => handleChange("endDate", e.target.value)}
+                                                onChange={(val) => handleChange("endDate", val)}
+                                                placeholder="Pick event end date"
                                             />
                                         </div>
                                     </div>

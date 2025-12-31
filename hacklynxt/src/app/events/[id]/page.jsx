@@ -21,10 +21,56 @@ import {
     Share2,
     Heart,
     ExternalLink,
-    Loader2
+    Loader2,
+    Tag,
+    Layers
 } from "lucide-react";
 import { eventsAPI, authAPI } from "@/lib/api";
 import { toast } from "sonner";
+
+// Simple Markdown renderer component
+function MarkdownRenderer({ content }) {
+    if (!content) return <p className="text-muted-foreground">No description provided.</p>;
+
+    const renderMarkdown = (text) => {
+        let html = text
+            // Escape HTML first
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            // Headers
+            .replace(/^### (.*$)/gim, '<h3 class="text-lg font-semibold mt-4 mb-2">$1</h3>')
+            .replace(/^## (.*$)/gim, '<h2 class="text-xl font-bold mt-4 mb-2">$1</h2>')
+            .replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold mt-4 mb-2">$1</h1>')
+            // Bold and Italic
+            .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.+?)\*/g, '<em>$1</em>')
+            // Code blocks
+            .replace(/```([\s\S]*?)```/g, '<pre class="bg-muted p-3 rounded-md my-2 overflow-x-auto text-sm"><code>$1</code></pre>')
+            // Inline code
+            .replace(/`(.+?)`/g, '<code class="bg-muted px-1 py-0.5 rounded text-sm">$1</code>')
+            // Blockquotes
+            .replace(/^\> (.*$)/gim, '<blockquote class="border-l-4 border-primary pl-4 my-2 italic text-muted-foreground">$1</blockquote>')
+            // Unordered lists
+            .replace(/^\- (.*$)/gim, '<li class="ml-4 list-disc">$1</li>')
+            // Ordered lists  
+            .replace(/^\d+\. (.*$)/gim, '<li class="ml-4 list-decimal">$1</li>')
+            // Links
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-primary underline hover:no-underline" target="_blank" rel="noopener">$1</a>')
+            // Line breaks
+            .replace(/\n/g, '<br/>');
+
+        return html;
+    };
+
+    return (
+        <div
+            className="prose prose-sm max-w-none text-muted-foreground"
+            dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+        />
+    );
+}
 
 export default function EventDetailsPage() {
     const params = useParams();
@@ -33,62 +79,23 @@ export default function EventDetailsPage() {
     const [loading, setLoading] = useState(true);
     const [isLiked, setIsLiked] = useState(false);
 
+    const [currentUser, setCurrentUser] = useState(null);
+
+    // Treat the route param as slug (can be slug or id for backwards compat)
+    const eventSlugOrId = params.id;
+
     useEffect(() => {
         const fetchEvent = async () => {
             try {
-                const { ok, data } = await eventsAPI.getEvent?.(params.id) || { ok: false };
-                if (ok) {
-                    setEvent(data);
+                // Try slug-based lookup first, fallback to id if it looks numeric
+                let data;
+                if (/^\d+$/.test(eventSlugOrId)) {
+                    data = await eventsAPI.get(eventSlugOrId);
                 } else {
-                    // Use sample data for demo
-                    setEvent({
-                        id: params.id,
-                        name: "AI Innovation Challenge 2024",
-                        description: `
-              Join us for the most exciting AI hackathon of the year! 
-              
-              This is your chance to showcase your AI/ML skills, collaborate with talented peers, 
-              and compete for amazing prizes. Whether you're a beginner or an expert, 
-              there's something for everyone.
-              
-              ## What to Expect
-              - 48 hours of intense coding and innovation
-              - Mentorship from industry experts
-              - Workshops on cutting-edge AI technologies
-              - Networking opportunities with tech companies
-              
-              ## Tracks
-              - Natural Language Processing
-              - Computer Vision
-              - Generative AI
-              - AI for Social Good
-            `,
-                        start_date: "2024-02-15T09:00:00",
-                        end_date: "2024-02-17T18:00:00",
-                        registration_deadline: "2024-02-10T23:59:00",
-                        mode: "Hybrid",
-                        location: "Tech University Campus & Online",
-                        organizer_name: "Tech University",
-                        prize_pool: "₹50,000",
-                        team_size_min: 2,
-                        team_size_max: 4,
-                        tracks: "AI/ML, NLP, Computer Vision, GenAI",
-                        total_registrations: 156,
-                        cover_image: "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=1200",
-                        rules: "All submissions must be original work. Teams must consist of 2-4 members.",
-                        prizes: [
-                            { position: "1st Place", prize: "₹25,000 + Internship Opportunity" },
-                            { position: "2nd Place", prize: "₹15,000 + Goodies" },
-                            { position: "3rd Place", prize: "₹10,000 + Goodies" },
-                        ],
-                        timeline: [
-                            { time: "Feb 15, 9:00 AM", event: "Opening Ceremony & Problem Statement Release" },
-                            { time: "Feb 15, 11:00 AM", event: "Hacking Begins" },
-                            { time: "Feb 16, 2:00 PM", event: "Mentor Office Hours" },
-                            { time: "Feb 17, 12:00 PM", event: "Submission Deadline" },
-                            { time: "Feb 17, 4:00 PM", event: "Judging & Results" },
-                        ],
-                    });
+                    data = await eventsAPI.getBySlug(eventSlugOrId);
+                }
+                if (data) {
+                    setEvent(data);
                 }
             } catch (error) {
                 console.error("Failed to fetch event:", error);
@@ -97,10 +104,16 @@ export default function EventDetailsPage() {
             }
         };
 
-        if (params.id) {
+        const fetchUser = () => {
+            const user = authAPI.getUser();
+            setCurrentUser(user);
+        };
+
+        if (eventSlugOrId) {
             fetchEvent();
+            fetchUser();
         }
-    }, [params.id]);
+    }, [eventSlugOrId]);
 
     const handleApply = () => {
         if (!authAPI.isAuthenticated()) {
@@ -108,14 +121,15 @@ export default function EventDetailsPage() {
             router.push("/auth?mode=login");
             return;
         }
-        router.push(`/dashboard/apply/${params.id}`);
+        // Navigate using slug if available, otherwise id
+        router.push(`/dashboard/apply/${event?.slug || event?.id}`);
     };
 
     const handleShare = async () => {
         try {
             await navigator.share({
                 title: event?.name,
-                text: event?.description?.substring(0, 100),
+                text: event?.tagline || event?.description?.substring(0, 100),
                 url: window.location.href,
             });
         } catch {
@@ -123,6 +137,12 @@ export default function EventDetailsPage() {
             navigator.clipboard.writeText(window.location.href);
             toast.success("Link copied to clipboard!");
         }
+    };
+
+    // Parse comma-separated strings into arrays
+    const parseCommaList = (str) => {
+        if (!str) return [];
+        return str.split(',').map(item => item.trim()).filter(Boolean);
     };
 
     if (loading) {
@@ -150,6 +170,14 @@ export default function EventDetailsPage() {
         );
     }
 
+    const tracks = parseCommaList(event.tracks);
+    const themes = parseCommaList(event.themes);
+    const hasThemesOrTracks = tracks.length > 0 || themes.length > 0;
+
+    // Determine cover image - use cover_image or logo or default
+    const coverImage = event.cover_image || event.logo || "/placeholder-event.jpg";
+    const logoImage = event.logo;
+
     return (
         <div className="min-h-screen flex flex-col">
             <Header />
@@ -157,14 +185,17 @@ export default function EventDetailsPage() {
             <main className="flex-1 pt-16">
                 {/* Hero Image */}
                 <div className="relative h-64 md:h-96 bg-secondary">
-                    <Image
-                        src={event.cover_image}
-                        alt={event.name}
-                        fill
-                        className="object-cover"
-                        priority
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
+                    {coverImage && (
+                        <Image
+                            src={coverImage}
+                            alt={event.name}
+                            fill
+                            className="object-cover"
+                            priority
+                            unoptimized
+                        />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
                 </div>
 
                 <div className="container mx-auto px-4 -mt-32 relative z-10">
@@ -182,35 +213,80 @@ export default function EventDetailsPage() {
                             {/* Event Header */}
                             <Card>
                                 <CardContent className="p-6">
-                                    <div className="flex flex-wrap gap-2 mb-4">
-                                        <Badge variant="secondary">{event.mode}</Badge>
-                                        {event.tracks?.split(",").slice(0, 3).map((track) => (
-                                            <Badge key={track} variant="outline">{track.trim()}</Badge>
-                                        ))}
+                                    <div className="flex gap-6">
+                                        {/* Event Logo */}
+                                        {logoImage && (
+                                            <div className="hidden md:block relative w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 border shadow-sm">
+                                                <Image
+                                                    src={logoImage}
+                                                    alt={`${event.name} logo`}
+                                                    fill
+                                                    className="object-cover"
+                                                    unoptimized
+                                                />
+                                            </div>
+                                        )}
+
+                                        <div className="flex-1">
+                                            <div className="flex flex-wrap gap-2 mb-4">
+                                                <Badge variant="secondary">{event.mode}</Badge>
+                                                {event.status && event.status !== 'published' && (
+                                                    <Badge variant="outline">{event.status}</Badge>
+                                                )}
+                                            </div>
+
+                                            <h1 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-2">
+                                                {event.name}
+                                            </h1>
+
+                                            {event.tagline && (
+                                                <p className="text-lg text-muted-foreground mb-4">{event.tagline}</p>
+                                            )}
+
+                                            <div className="flex flex-wrap items-center gap-6 text-muted-foreground">
+                                                <div className="flex items-center gap-2">
+                                                    <Calendar className="h-4 w-4" />
+                                                    {new Date(event.start_date).toLocaleDateString("en-IN", {
+                                                        day: "numeric",
+                                                        month: "short",
+                                                        year: "numeric",
+                                                    })}
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <MapPin className="h-4 w-4" />
+                                                    {event.venue || event.city || "Online"}
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Users className="h-4 w-4" />
+                                                    {event.participants_count || 0} registered
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
 
-                                    <h1 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-4">
-                                        {event.name}
-                                    </h1>
-
-                                    <div className="flex flex-wrap items-center gap-6 text-muted-foreground">
-                                        <div className="flex items-center gap-2">
-                                            <Calendar className="h-4 w-4" />
-                                            {new Date(event.start_date).toLocaleDateString("en-IN", {
-                                                day: "numeric",
-                                                month: "short",
-                                                year: "numeric",
-                                            })}
+                                    {/* Themes and Tracks */}
+                                    {hasThemesOrTracks && (
+                                        <div className="mt-6 pt-6 border-t space-y-4">
+                                            {themes.length > 0 && (
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <Tag className="h-4 w-4 text-muted-foreground" />
+                                                    <span className="text-sm font-medium text-muted-foreground mr-2">Themes:</span>
+                                                    {themes.map((theme, idx) => (
+                                                        <Badge key={idx} variant="secondary">{theme}</Badge>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            {tracks.length > 0 && (
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <Layers className="h-4 w-4 text-muted-foreground" />
+                                                    <span className="text-sm font-medium text-muted-foreground mr-2">Tracks:</span>
+                                                    {tracks.map((track, idx) => (
+                                                        <Badge key={idx} variant="outline">{track}</Badge>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <MapPin className="h-4 w-4" />
-                                            {event.location || "Online"}
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <Users className="h-4 w-4" />
-                                            {event.total_registrations || 0} registered
-                                        </div>
-                                    </div>
+                                    )}
                                 </CardContent>
                             </Card>
 
@@ -218,35 +294,14 @@ export default function EventDetailsPage() {
                             <Tabs defaultValue="about" className="w-full">
                                 <TabsList className="w-full justify-start">
                                     <TabsTrigger value="about">About</TabsTrigger>
-                                    <TabsTrigger value="timeline">Timeline</TabsTrigger>
                                     <TabsTrigger value="prizes">Prizes</TabsTrigger>
-                                    <TabsTrigger value="rules">Rules</TabsTrigger>
+                                    <TabsTrigger value="rules">Rules & Eligibility</TabsTrigger>
                                 </TabsList>
 
                                 <TabsContent value="about" className="mt-4">
                                     <Card>
-                                        <CardContent className="p-6 prose prose-sm max-w-none">
-                                            <div className="whitespace-pre-wrap text-muted-foreground">
-                                                {event.description}
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                </TabsContent>
-
-                                <TabsContent value="timeline" className="mt-4">
-                                    <Card>
                                         <CardContent className="p-6">
-                                            <div className="space-y-4">
-                                                {(event.timeline || []).map((item, index) => (
-                                                    <div key={index} className="flex gap-4">
-                                                        <div className="w-2 h-2 rounded-full bg-primary mt-2" />
-                                                        <div>
-                                                            <p className="font-medium text-foreground">{item.event}</p>
-                                                            <p className="text-sm text-muted-foreground">{item.time}</p>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
+                                            <MarkdownRenderer content={event.description} />
                                         </CardContent>
                                     </Card>
                                 </TabsContent>
@@ -254,31 +309,61 @@ export default function EventDetailsPage() {
                                 <TabsContent value="prizes" className="mt-4">
                                     <Card>
                                         <CardContent className="p-6">
-                                            <div className="grid gap-4">
-                                                {(event.prizes || []).map((prize, index) => (
-                                                    <div
-                                                        key={index}
-                                                        className="flex items-center gap-4 p-4 rounded-lg bg-secondary/50"
-                                                    >
-                                                        <Trophy className={`h-8 w-8 ${index === 0 ? "text-yellow-500" :
-                                                            index === 1 ? "text-gray-400" :
-                                                                "text-amber-600"
-                                                            }`} />
-                                                        <div>
-                                                            <p className="font-semibold text-foreground">{prize.position}</p>
-                                                            <p className="text-muted-foreground">{prize.prize}</p>
+                                            {event.prizes && event.prizes.length > 0 ? (
+                                                <div className="grid gap-4">
+                                                    {event.prizes.map((prize, index) => (
+                                                        <div
+                                                            key={index}
+                                                            className="flex items-center gap-4 p-4 rounded-lg bg-secondary/50"
+                                                        >
+                                                            <Trophy className={`h-8 w-8 ${index === 0 ? "text-warning" :
+                                                                index === 1 ? "text-neutral-400" :
+                                                                    "text-warning"
+                                                                }`} />
+                                                            <div>
+                                                                <p className="font-semibold text-foreground">{prize.position}</p>
+                                                                <p className="text-muted-foreground">{prize.reward}</p>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                ))}
-                                            </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-8">
+                                                    <Trophy className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                                                    <p className="text-muted-foreground">
+                                                        Prize details will be announced soon.
+                                                    </p>
+                                                    {event.prize_pool && (
+                                                        <p className="text-lg font-semibold text-primary mt-2">
+                                                            Total Prize Pool: {event.prize_pool}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            )}
                                         </CardContent>
                                     </Card>
                                 </TabsContent>
 
                                 <TabsContent value="rules" className="mt-4">
                                     <Card>
-                                        <CardContent className="p-6">
-                                            <p className="text-muted-foreground">{event.rules || "Rules will be announced soon."}</p>
+                                        <CardContent className="p-6 space-y-6">
+                                            {event.rules && (
+                                                <div>
+                                                    <h3 className="font-semibold text-lg mb-3">Rules</h3>
+                                                    <MarkdownRenderer content={event.rules} />
+                                                </div>
+                                            )}
+                                            {event.eligibility && (
+                                                <div>
+                                                    <h3 className="font-semibold text-lg mb-3">Eligibility</h3>
+                                                    <MarkdownRenderer content={event.eligibility} />
+                                                </div>
+                                            )}
+                                            {!event.rules && !event.eligibility && (
+                                                <p className="text-muted-foreground">
+                                                    Rules and eligibility criteria will be announced soon.
+                                                </p>
+                                            )}
                                         </CardContent>
                                     </Card>
                                 </TabsContent>
@@ -297,7 +382,7 @@ export default function EventDetailsPage() {
                                 </CardHeader>
                                 <CardContent className="space-y-6">
                                     <div className="text-center">
-                                        <p className="text-3xl font-bold text-primary">{event.prize_pool}</p>
+                                        <p className="text-3xl font-bold text-primary">{event.prize_pool || "TBA"}</p>
                                         <p className="text-sm text-muted-foreground">in prizes</p>
                                     </div>
 
@@ -306,47 +391,81 @@ export default function EventDetailsPage() {
                                     <div className="space-y-3 text-sm">
                                         <div className="flex justify-between">
                                             <span className="text-muted-foreground">Team Size</span>
-                                            <span className="font-medium">{event.team_size_min || 1} - {event.team_size_max || 4} members</span>
+                                            <span className="font-medium">{event.team_min || 1} - {event.team_max || 4} members</span>
                                         </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-muted-foreground">Registration Deadline</span>
+
+                                        {/* Registration Deadline */}
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-muted-foreground flex items-center gap-1">
+                                                <Clock className="h-3 w-3" />
+                                                Reg. Deadline
+                                            </span>
                                             <span className="font-medium">
-                                                {new Date(event.registration_deadline || event.start_date).toLocaleDateString()}
+                                                {event.registration_end
+                                                    ? new Date(event.registration_end).toLocaleDateString("en-IN", {
+                                                        day: "numeric",
+                                                        month: "short",
+                                                        hour: "2-digit",
+                                                        minute: "2-digit"
+                                                    })
+                                                    : "Not specified"}
                                             </span>
                                         </div>
+
                                         <div className="flex justify-between">
                                             <span className="text-muted-foreground">Organizer</span>
                                             <span className="font-medium">{event.organizer_name}</span>
                                         </div>
+
+                                        {event.website && (
+                                            <div className="flex justify-between">
+                                                <span className="text-muted-foreground">Website</span>
+                                                <a
+                                                    href={event.website}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="font-medium text-primary hover:underline flex items-center gap-1"
+                                                >
+                                                    Visit <ExternalLink className="h-3 w-3" />
+                                                </a>
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="space-y-3">
-                                        <Button className="w-full" size="lg" onClick={handleApply}>
-                                            Apply Now
-                                        </Button>
-                                        <div className="flex gap-2">
-                                            <Button
-                                                variant="outline"
-                                                className="flex-1"
-                                                onClick={() => setIsLiked(!isLiked)}
-                                            >
-                                                <Heart className={`h-4 w-4 mr-2 ${isLiked ? "fill-red-500 text-red-500" : ""}`} />
-                                                {isLiked ? "Saved" : "Save"}
-                                            </Button>
-                                            <Button variant="outline" className="flex-1" onClick={handleShare}>
-                                                <Share2 className="h-4 w-4 mr-2" />
-                                                Share
-                                            </Button>
-                                        </div>
+                                        {/* Logic: If Organizer -> Show Manage + Share only, Else -> Show Apply + Share */}
+                                        {currentUser && event.organizer && currentUser.id === event.organizer.id ? (
+                                            <>
+                                                <Button className="w-full" size="lg" asChild>
+                                                    <Link href={`/events/${event.slug || event.id}/manage`}>
+                                                        Manage Event
+                                                    </Link>
+                                                </Button>
+                                                <Button variant="outline" className="w-full" onClick={handleShare}>
+                                                    <Share2 className="h-4 w-4 mr-2" />
+                                                    Share
+                                                </Button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Button className="w-full" size="lg" onClick={handleApply}>
+                                                    Apply Now
+                                                </Button>
+                                                <Button variant="outline" className="w-full" onClick={handleShare}>
+                                                    <Share2 className="h-4 w-4 mr-2" />
+                                                    Share
+                                                </Button>
+                                            </>
+                                        )}
                                     </div>
                                 </CardContent>
                             </Card>
                         </div>
                     </div>
                 </div>
-            </main>
+            </main >
 
             <Footer />
-        </div>
+        </div >
     );
 }

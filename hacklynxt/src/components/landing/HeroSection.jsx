@@ -15,19 +15,20 @@ import {
 
 export function HeroSection() {
     return (
-        <section className="relative pt-32 pb-20 overflow-hidden">
-            {/* Background Pattern */}
+        <section className="relative pt-32 pb-24 overflow-hidden bg-white">
+            {/* Background Pattern - Modern and Clean */}
             <div className="absolute inset-0 -z-10">
-                <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-                <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
+                <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:32px_32px] opacity-30" />
+                <div className="absolute top-20 right-[-10%] w-[500px] h-[500px] bg-french-blue-50/50 rounded-full blur-[120px]" />
+                <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-turquoise-surf-50/30 rounded-full blur-[130px]" />
             </div>
 
             <div className="container mx-auto px-4">
                 <div className="max-w-4xl mx-auto text-center">
                     {/* Badge */}
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/5 border border-primary/10 mb-8 animate-fade-up" style={{ animationDelay: '0ms' }}>
-                        <Sparkles className="w-4 h-4 text-primary" />
-                        <span className="text-sm font-medium text-primary">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-french-blue-50 border border-french-blue-100 mb-8 animate-fade-up" style={{ animationDelay: '0ms' }}>
+                        <Sparkles className="w-4 h-4 text-french-blue-600" />
+                        <span className="text-sm font-medium text-french-blue-900">
                             The Future of Campus Events
                         </span>
                     </div>

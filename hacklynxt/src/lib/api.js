@@ -11,16 +11,16 @@ const OAUTH_BASE_URL = process.env.NEXT_PUBLIC_OAUTH_URL || 'http://localhost:80
 
 // Create axios instance with default config
 const apiClient = axios.create({
-    baseURL: API_BASE_URL,
+    baseURL: API_BASE_URL.endsWith('/') ? API_BASE_URL : `${API_BASE_URL}/`,
     headers: {
         'Content-Type': 'application/json',
     },
-    timeout: 30000, // 30 second timeout
+    timeout: 30000,
 });
 
-// Create public axios instance (no auth required)
+// Create public axios instance
 const publicClient = axios.create({
-    baseURL: API_BASE_URL,
+    baseURL: API_BASE_URL.endsWith('/') ? API_BASE_URL : `${API_BASE_URL}/`,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -53,21 +53,30 @@ const clearTokens = () => {
     localStorage.removeItem('isAuthenticated');
 };
 
-// ==================== Axios Interceptors ====================
+// Request interceptor helper
+const addRequestInterceptors = (client) => {
+    client.interceptors.request.use(
+        (config) => {
+            if (client === apiClient) {
+                const token = getAccessToken();
+                if (token) {
+                    config.headers.Authorization = `Bearer ${token}`;
+                }
+            }
+            // Remove leading slash if it exists to ensure baseURL is used correctly
+            if (config.url?.startsWith('/')) {
+                config.url = config.url.substring(1);
+            }
+            return config;
+        },
+        (error) => Promise.reject(error)
+    );
+};
 
-// Request interceptor - add auth token
-apiClient.interceptors.request.use(
-    (config) => {
-        const token = getAccessToken();
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error) => Promise.reject(error)
-);
+addRequestInterceptors(apiClient);
+addRequestInterceptors(publicClient);
 
-// Response interceptor - handle token refresh
+// Response interceptor
 let isRefreshing = false;
 let failedQueue = [];
 
@@ -106,11 +115,12 @@ apiClient.interceptors.response.use(
             if (!refreshToken) {
                 clearTokens();
                 isRefreshing = false;
+                window.location.href = '/auth?mode=login'; // Forced logout
                 return Promise.reject(error);
             }
 
             try {
-                const response = await publicClient.post('/auth/refresh/', {
+                const response = await publicClient.post('auth/refresh/', {
                     refresh: refreshToken,
                 });
 
@@ -123,6 +133,7 @@ apiClient.interceptors.response.use(
             } catch (refreshError) {
                 processQueue(refreshError, null);
                 clearTokens();
+                // If it's a 500, we still want to just log out rather than crash
                 return Promise.reject(refreshError);
             } finally {
                 isRefreshing = false;
@@ -247,6 +258,63 @@ export const authAPI = {
             return { ok: false, error: 'Token validation failed' };
         }
     },
+
+    // Email OTP methods
+    async sendEmailOTP() {
+        try {
+            const response = await apiClient.post('/auth/email/send-otp/');
+            return { ok: true, data: response.data };
+        } catch (error) {
+            return {
+                ok: false,
+                data: error.response?.data || { error: 'Failed to send OTP' }
+            };
+        }
+    },
+
+    async verifyEmailOTP(otp) {
+        try {
+            const response = await apiClient.post('/auth/email/verify-otp/', { otp });
+            const result = response.data;
+            if (result.user) {
+                this.setUser(result.user);
+            }
+            return { ok: true, data: result };
+        } catch (error) {
+            return {
+                ok: false,
+                data: error.response?.data || { error: 'Failed to verify OTP' }
+            };
+        }
+    },
+
+    async forgotPassword(email) {
+        try {
+            const response = await publicClient.post('/auth/password/forgot/', { email });
+            return { ok: true, data: response.data };
+        } catch (error) {
+            return {
+                ok: false,
+                data: error.response?.data || { error: 'Failed to send password reset OTP' }
+            };
+        }
+    },
+
+    async resetPassword(email, otp, newPassword) {
+        try {
+            const response = await publicClient.post('/auth/password/reset/', {
+                email,
+                otp,
+                new_password: newPassword
+            });
+            return { ok: true, data: response.data };
+        } catch (error) {
+            return {
+                ok: false,
+                data: error.response?.data || { error: 'Failed to reset password' }
+            };
+        }
+    },
 };
 
 // ==================== Profile API ====================
@@ -258,7 +326,14 @@ export const profileAPI = {
     },
 
     async update(data) {
-        const response = await apiClient.patch('/profile/', data);
+        // If data is FormData (for file uploads), we need to let browser set Content-Type with boundary
+        const config = {};
+        if (data instanceof FormData) {
+            config.headers = {
+                'Content-Type': 'multipart/form-data',
+            };
+        }
+        const response = await apiClient.patch('/profile/', data, config);
         return response.data;
     },
 
@@ -341,31 +416,46 @@ export const eventsAPI = {
         return response.data;
     },
 
-    async getEvents(filters = {}) {
-        try {
-            const response = await publicClient.get('/events/', { params: filters });
-            return { ok: true, data: response.data };
-        } catch (error) {
-            return { ok: false, data: error.response?.data || [] };
-        }
+    async get(id) {
+        const response = await publicClient.get(`/events/${id}/`);
+        return response.data;
     },
 
-    async getEvent(id) {
-        try {
-            const response = await apiClient.get(`/events/${id}/`);
-            return { ok: true, data: response.data };
-        } catch (error) {
-            return { ok: false, data: error.response?.data || null };
+    async getBySlug(slug) {
+        const response = await publicClient.get(`/events/by-slug/${slug}/`);
+        return response.data;
+    },
+
+    async create(data, isMultipart = false) {
+        const config = {};
+        if (isMultipart || data instanceof FormData) {
+            config.headers = {
+                'Content-Type': 'multipart/form-data',
+            };
         }
+        const response = await apiClient.post('/events/', data, config);
+        return response.data;
+    },
+
+    async update(id, data) {
+        const config = {};
+        if (data instanceof FormData) {
+            config.headers = {
+                'Content-Type': 'multipart/form-data',
+            };
+        }
+        const response = await apiClient.patch(`/events/${id}/`, data, config);
+        return response.data;
+    },
+
+    async delete(id) {
+        await apiClient.delete(`/events/${id}/`);
+        return { success: true };
     },
 
     async getMyEvents() {
-        try {
-            const response = await apiClient.get('/events/my/');
-            return { ok: true, data: response.data };
-        } catch (error) {
-            return { ok: false, data: error.response?.data || [] };
-        }
+        const response = await apiClient.get('/events/my/');
+        return response.data;
     },
 
     async featured() {
@@ -373,53 +463,13 @@ export const eventsAPI = {
         return response.data;
     },
 
-    async get(id) {
-        const response = await apiClient.get(`/events/${id}/`);
-        return response.data;
-    },
-
-    async create(data) {
-        const response = await apiClient.post('/events/', data);
-        return response.data;
-    },
-
-    async update(id, data) {
-        const response = await apiClient.patch(`/events/${id}/`, data);
-        return response.data;
-    },
-
-    async delete(id) {
-        await apiClient.delete(`/events/${id}/`);
-        return { message: 'Event deleted' };
-    },
-
-    async myEvents() {
-        const response = await apiClient.get('/events/my/');
-        return response.data;
-    },
-
     async apply(eventId, data = {}) {
-        try {
-            const response = await apiClient.post(`/events/${eventId}/apply/`, data);
-            return response.data;
-        } catch (error) {
-            throw new Error(error.response?.data?.error || 'Failed to apply');
-        }
-    },
-
-    async save(eventId) {
-        const response = await apiClient.post(`/events/${eventId}/save/`);
+        const response = await apiClient.post(`/events/${eventId}/apply/`, data);
         return response.data;
     },
 
-    async unsave(eventId) {
-        const response = await apiClient.delete(`/events/${eventId}/save/`);
-        return response.data;
-    },
-
-    async getApplications(eventId, status) {
-        const params = status ? { status } : {};
-        const response = await apiClient.get(`/events/${eventId}/applications/`, { params });
+    async getApplications(eventId, filters = {}) {
+        const response = await apiClient.get(`/events/${eventId}/applications/`, { params: filters });
         return response.data;
     },
 
@@ -431,15 +481,7 @@ export const eventsAPI = {
         return response.data;
     },
 
-    async bulkReviewApplications(eventId, applicationIds, action, reason = '') {
-        const response = await apiClient.post(`/events/${eventId}/applications/bulk-review/`, {
-            application_ids: applicationIds,
-            action,
-            reason,
-        });
-        return response.data;
-    },
-
+    // Sub-resources (Prizes, Sponsors)
     async getPrizes(eventId) {
         const response = await publicClient.get(`/events/${eventId}/prizes/`);
         return response.data;
@@ -457,11 +499,6 @@ export const eventsAPI = {
 
     async addSponsor(eventId, data) {
         const response = await apiClient.post(`/events/${eventId}/sponsors/`, data);
-        return response.data;
-    },
-
-    async getTimeline(eventId) {
-        const response = await publicClient.get(`/events/${eventId}/timeline/`);
         return response.data;
     },
 };
@@ -694,6 +731,17 @@ export const judgeAPI = {
     },
 };
 
+// ==================== Common API ====================
+
+export const commonAPI = {
+    async autocomplete(type, query) {
+        const response = await publicClient.get('/autocomplete/', {
+            params: { type, q: query }
+        });
+        return response.data;
+    },
+};
+
 // Export all APIs
 export const api = {
     auth: authAPI,
@@ -704,6 +752,7 @@ export const api = {
     dashboard: dashboardAPI,
     admin: adminAPI,
     judge: judgeAPI,
+    common: commonAPI,
 };
 
 export default api;
