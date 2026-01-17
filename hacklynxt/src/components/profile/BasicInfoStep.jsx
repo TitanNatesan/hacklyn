@@ -258,35 +258,40 @@ export function BasicInfoStep() {
                         <FormItem>
                             <FormLabel>Email Address</FormLabel>
                             <FormControl>
-                                <Input placeholder="john@example.com" type="email" {...field} />
+                                <Input
+                                    placeholder="john@example.com"
+                                    type="email"
+                                    {...field}
+                                    disabled={user?.auth_provider !== 'email'}
+                                    className={user?.auth_provider !== 'email' ? "bg-muted text-muted-foreground" : ""}
+                                />
                             </FormControl>
+                            {user?.auth_provider !== 'email' && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    Email cannot be changed because you signed in with {user?.auth_provider}.
+                                </p>
+                            )}
                             <FormMessage />
                         </FormItem>
                     )}
                 />
             </div>
 
-            {/* Email Verification Section */}
-            <div className="p-4 rounded-xl border bg-secondary/30">
-                <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                        <Mail className="w-5 h-5 text-primary" />
-                        <span className="font-medium">Email Verification</span>
-                    </div>
-                    {user?.email_verified ? (
-                        <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200">
-                            <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                            Verified
-                        </Badge>
-                    ) : (
+            {/* Email Verification Section - Only show for unverified users who signed up manually */}
+            {/* We assume auth_provider is 'email' for manual signups. Google/GitHub users have 'google'/'github' */}
+            {user?.auth_provider === 'email' && !user?.email_verified && (
+                <div className="p-4 rounded-xl border bg-secondary/30">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                            <Mail className="w-5 h-5 text-primary" />
+                            <span className="font-medium">Email Verification</span>
+                        </div>
                         <Badge variant="secondary" className="bg-amber-100 text-amber-700 border-amber-200">
                             <AlertCircle className="w-3.5 h-3.5 mr-1" />
                             Not Verified
                         </Badge>
-                    )}
-                </div>
+                    </div>
 
-                {!user?.email_verified && (
                     <div className="space-y-3">
                         <p className="text-sm text-muted-foreground">
                             Verify your email to host events and apply to hackathons.
@@ -359,8 +364,8 @@ export function BasicInfoStep() {
                             </div>
                         )}
                     </div>
-                )}
-            </div>
+                </div>
+            )}
 
             <FormField
                 control={control}

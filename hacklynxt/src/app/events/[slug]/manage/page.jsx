@@ -41,8 +41,8 @@ export default function ManageEventPage() {
         const fetchData = async () => {
             try {
                 const [eventData, appsData] = await Promise.all([
-                    eventsAPI.get(params.id),
-                    eventsAPI.getApplications(params.id)
+                    eventsAPI.get(params.slug),
+                    eventsAPI.getApplications(params.slug)
                 ]);
 
                 setEvent(eventData);
@@ -65,11 +65,11 @@ export default function ManageEventPage() {
         };
 
         fetchData();
-    }, [params.id]);
+    }, [params.slug]);
 
     const handleReview = async (appId, action) => {
         try {
-            await eventsAPI.reviewApplication(params.id, appId, action);
+            await eventsAPI.reviewApplication(params.slug, appId, action);
             toast.success(`Application ${action}ed`);
 
             // Update local state
@@ -114,11 +114,11 @@ export default function ManageEventPage() {
                             </div>
                         </div>
                         <div className="flex gap-2">
-                            <Button variant="outline" onClick={() => router.push(`/events/${params.id}`)}>
+                            <Button variant="outline" onClick={() => router.push(`/events/${params.slug}`)}>
                                 <ExternalLink className="w-4 h-4 mr-2" />
                                 View Public Page
                             </Button>
-                            <Button onClick={() => router.push(`/events/${params.id}/edit`)}>
+                            <Button onClick={() => router.push(`/events/${params.slug}/edit`)}>
                                 <Settings className="w-4 h-4 mr-2" />
                                 Edit Event
                             </Button>

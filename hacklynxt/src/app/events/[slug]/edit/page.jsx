@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Image from "next/image";
@@ -35,7 +35,7 @@ import {
 import { OrganizationPicker } from "@/components/ui/OrganizationPicker";
 import {
     MapPin, Trophy, Rocket, ArrowRight, Loader2,
-    Upload, X, ImageIcon, Clock, Save, Globe
+    Upload, X, ImageIcon, Clock, CalendarIcon, Plus, Trash2, GripVertical, Save, Globe, Shield, FileQuestion, Users
 } from "lucide-react";
 import { eventsAPI } from "@/lib/api";
 import { toast } from "sonner";
@@ -43,6 +43,9 @@ import { MarkdownEditor } from "@/components/ui/MarkdownEditor";
 import { TagInput } from "@/components/ui/TagInput";
 import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { Switch } from "@/components/ui/switch";
+import { QuestionBuilder } from "@/components/events/QuestionBuilder";
+import { CoOrganizerManager } from "@/components/events/CoOrganizerManager";
+import { authAPI } from "@/lib/api";
 
 const eventSchema = z.object({
     name: z.string().min(5, "Name must be at least 5 characters"),
@@ -55,12 +58,26 @@ const eventSchema = z.object({
     city: z.string().optional(),
     start_date: z.string().min(1, "Start date is required"),
     end_date: z.string().min(1, "End date is required"),
+    registration_start: z.string().optional(),
     registration_end: z.string().optional(),
+    organizer_email: z.union([z.string().email("Enter a valid email"), z.literal("")]).optional(),
+    website: z.union([z.string().url("Enter a valid URL"), z.literal("")]).optional(),
+    discord_link: z.union([z.string().url("Enter a valid URL"), z.literal("")]).optional(),
     team_min: z.coerce.number().min(1).default(1),
     team_max: z.coerce.number().min(1).default(4),
+    max_participants: z.union([
+        z.coerce.number().min(1, "Must be at least 1"),
+        z.literal("").transform(() => undefined)
+    ]).optional(),
     prize_pool: z.string().optional(),
+    prizes: z.array(z.object({
+        position: z.string().min(1, "Title/Position is required"),
+        reward: z.string().min(1, "Prize/Reward is required"),
+    })).default([]),
     tracks: z.array(z.string()).default([]),
     themes: z.array(z.string()).default([]),
+    rules: z.string().optional(),
+    eligibility: z.string().optional(),
     status: z.enum(["draft", "published", "ongoing", "completed", "cancelled"]).default("draft"),
 });
 
@@ -154,6 +171,8 @@ export default function EditEventPage() {
     // Initial image URLs for preview
     const [initialLogo, setInitialLogo] = useState(null);
     const [initialBanner, setInitialBanner] = useState(null);
+    const [questions, setQuestions] = useState([]);
+    const [isMainOrganizer, setIsMainOrganizer] = useState(false);
 
     const form = useForm({
         resolver: zodResolver(eventSchema),
@@ -168,20 +187,33 @@ export default function EditEventPage() {
             city: "",
             start_date: "",
             end_date: "",
+            registration_start: "",
             registration_end: "",
+            organizer_email: "",
+            website: "",
+            discord_link: "",
             prize_pool: "",
+            prizes: [],
             team_min: 1,
             team_max: 4,
+            max_participants: "",
             tracks: [],
             themes: [],
+            rules: "",
+            eligibility: "",
             status: "draft",
         },
+    });
+
+    const { fields: prizeFields, append: appendPrize, remove: removePrize } = useFieldArray({
+        control: form.control,
+        name: "prizes",
     });
 
     useEffect(() => {
         const fetchEvent = async () => {
             try {
-                const data = await eventsAPI.get(params.id);
+                const data = await eventsAPI.get(params.slug);
                 // Pre-fill form
                 form.reset({
                     name: data.name,
@@ -194,17 +226,45 @@ export default function EditEventPage() {
                     city: data.city || "",
                     start_date: data.start_date,
                     end_date: data.end_date,
+                    registration_start: data.registration_start || "",
                     registration_end: data.registration_end || "",
+                    organizer_email: data.organizer_email || "",
+                    website: data.website || "",
+                    discord_link: data.discord_link || "",
                     prize_pool: data.prize_pool || "",
+                    prizes: data.prizes || [],
                     team_min: data.team_min,
                     team_max: data.team_max,
+                    max_participants: data.max_participants ?? "",
                     tracks: data.tracks ? data.tracks.split(',').map(s => s.trim()).filter(Boolean) : [],
                     themes: data.themes ? data.themes.split(',').map(s => s.trim()).filter(Boolean) : [],
+                    rules: data.rules || "",
+                    eligibility: data.eligibility || "",
                     status: data.status,
                 });
 
                 setInitialLogo(data.logo);
                 setInitialBanner(data.cover_image);
+
+                // Check if current user is the main organizer
+                try {
+                    const currentUser = await authAPI.getMe();
+                    setIsMainOrganizer(data.organizer?.id === currentUser?.id);
+                } catch (userError) {
+                    console.warn("Could not verify organizer status:", userError);
+                }
+
+                // Fetch event questions
+                try {
+                    const questionsData = await eventsAPI.getQuestions(params.slug);
+                    // Handle paginated response if applicable
+                    const questionsArray = Array.isArray(questionsData)
+                        ? questionsData
+                        : (questionsData?.results || []);
+                    setQuestions(questionsArray);
+                } catch (qError) {
+                    console.error("Failed to fetch questions:", qError);
+                }
             } catch (error) {
                 console.error("Failed to fetch event:", error);
                 toast.error("Failed to load event details");
@@ -214,10 +274,10 @@ export default function EditEventPage() {
             }
         };
 
-        if (params.id) {
+        if (params.slug) {
             fetchEvent();
         }
-    }, [params.id, form, router]);
+    }, [params.slug, form, router]);
 
     const onSubmit = async (data) => {
         setSaving(true);
@@ -226,7 +286,7 @@ export default function EditEventPage() {
 
             // Add text fields
             Object.entries(data).forEach(([key, value]) => {
-                if (value !== undefined && value !== null) {
+                if (value !== undefined && value !== null && key !== 'prizes') {
                     if (Array.isArray(value)) {
                         formData.append(key, value.join(", "));
                     } else if (typeof value === 'boolean') {
@@ -237,15 +297,27 @@ export default function EditEventPage() {
                 }
             });
 
+            if (data.prizes) {
+                formData.append("prizes_data", JSON.stringify(data.prizes));
+            }
+
             // Add new images if selected
             if (logo) formData.append("logo", logo);
             if (banner) formData.append("cover_image", banner);
 
             // Using commonAPI or eventsAPI.update (need to verify if update supports multipart in `api.js`)
-            await eventsAPI.update(params.id, formData); // Ensure api.js update supports FormData (it usually does if we don't set header manually, browser does it)
+            await eventsAPI.update(params.slug, formData);
+
+            // Save questions if any were added
+            try {
+                await eventsAPI.bulkSaveQuestions(params.slug, questions);
+            } catch (questionError) {
+                console.error("Failed to save questions:", questionError);
+                toast.warning("Event updated but questions could not be saved.");
+            }
 
             toast.success("Event updated successfully!");
-            router.push(`/events/${params.id}`);
+            router.push(`/events/${params.slug}`);
         } catch (error) {
             console.error("Failed to update event:", error);
             toast.error("Failed to update event");
@@ -283,38 +355,6 @@ export default function EditEventPage() {
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
 
-                            {/* Publish / Status Section */}
-                            <div className="bg-white border p-6 rounded-xl shadow-sm flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-lg font-semibold flex items-center gap-2">
-                                        <Globe className="w-5 h-5 text-primary" />
-                                        Visibility Status
-                                    </h3>
-                                    <p className="text-sm text-muted-foreground">
-                                        {form.watch('status') === 'published'
-                                            ? "Your event is live and visible to everyone."
-                                            : "Your event is hidden. Publish it to accept registrations."}
-                                    </p>
-                                </div>
-                                <FormField
-                                    control={form.control}
-                                    name="status"
-                                    render={({ field }) => (
-                                        <FormItem className="flex items-center space-y-0 gap-3">
-                                            <FormControl>
-                                                <div className="flex items-center gap-2">
-                                                    <span className={`text-sm font-medium ${field.value === 'draft' ? 'text-foreground' : 'text-muted-foreground'}`}>Draft</span>
-                                                    <Switch
-                                                        checked={field.value === 'published'}
-                                                        onCheckedChange={(checked) => field.onChange(checked ? 'published' : 'draft')}
-                                                    />
-                                                    <span className={`text-sm font-medium ${field.value === 'published' ? 'text-primary' : 'text-muted-foreground'}`}>Published</span>
-                                                </div>
-                                            </FormControl>
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
 
                             <Accordion type="single" collapsible defaultValue="basic-info" className="w-full space-y-4">
 
@@ -327,7 +367,7 @@ export default function EditEventPage() {
                                             </div>
                                             <div className="text-left">
                                                 <p className="font-semibold text-lg leading-none">Basic Information</p>
-                                                <p className="text-sm text-muted-foreground font-normal mt-1">Name, description, and organizer</p>
+                                                <p className="text-sm text-muted-foreground font-normal mt-1">The core details of your event</p>
                                             </div>
                                         </div>
                                     </AccordionTrigger>
@@ -397,10 +437,52 @@ export default function EditEventPage() {
                                                 )}
                                             />
 
+                                            <div className="grid md:grid-cols-3 gap-6">
+                                                <FormField
+                                                    control={form.control}
+                                                    name="organizer_email"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Organizer Email</FormLabel>
+                                                            <FormControl>
+                                                                <Input type="email" placeholder="contact@yourorg.com" {...field} />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                <FormField
+                                                    control={form.control}
+                                                    name="website"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Website</FormLabel>
+                                                            <FormControl>
+                                                                <Input placeholder="https://example.com" {...field} />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                <FormField
+                                                    control={form.control}
+                                                    name="discord_link"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Discord / Community Link</FormLabel>
+                                                            <FormControl>
+                                                                <Input placeholder="https://discord.gg/your-event" {...field} />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
+
                                             <div className="grid md:grid-cols-2 gap-6">
                                                 <ImageUpload
                                                     label="Event Logo"
-                                                    description="Square image"
+                                                    description="1080 × 1080 px (Square, will be compressed)"
                                                     aspectRatio="1/1"
                                                     value={logo}
                                                     onChange={setLogo}
@@ -408,13 +490,66 @@ export default function EditEventPage() {
                                                 />
                                                 <ImageUpload
                                                     label="Event Banner"
-                                                    description="Landscape image"
+                                                    description="2:1 ratio, landscape (e.g. 1200 × 600 px)"
                                                     aspectRatio="2/1"
                                                     value={banner}
                                                     onChange={setBanner}
                                                     initialPreview={initialBanner}
                                                 />
                                             </div>
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+
+                                {/* Rules & Eligibility */}
+                                <AccordionItem value="rules" className="bg-white border text-card-foreground shadow-sm rounded-xl px-2">
+                                    <AccordionTrigger className="px-4 hover:no-underline">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                                                <Shield className="w-5 h-5" />
+                                            </div>
+                                            <div className="text-left">
+                                                <p className="font-semibold text-lg leading-none">Rules & Eligibility</p>
+                                                <p className="text-sm text-muted-foreground font-normal mt-1">Guidelines and participant requirements</p>
+                                            </div>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="px-4 pb-6 pt-2">
+                                        <div className="space-y-6">
+                                            <FormField
+                                                control={form.control}
+                                                name="rules"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Rules</FormLabel>
+                                                        <FormControl>
+                                                            <MarkdownEditor
+                                                                value={field.value || ""}
+                                                                onChange={field.onChange}
+                                                                minHeight="150px"
+                                                            />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control}
+                                                name="eligibility"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Eligibility</FormLabel>
+                                                        <FormControl>
+                                                            <MarkdownEditor
+                                                                value={field.value || ""}
+                                                                onChange={field.onChange}
+                                                                minHeight="150px"
+                                                            />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
                                         </div>
                                     </AccordionContent>
                                 </AccordionItem>
@@ -427,7 +562,8 @@ export default function EditEventPage() {
                                                 <MapPin className="w-5 h-5" />
                                             </div>
                                             <div className="text-left">
-                                                <p className="font-semibold text-lg leading-none">Location & Schedule</p>
+                                                <p className="font-semibold text-lg leading-none">Location & Time</p>
+                                                <p className="text-sm text-muted-foreground font-normal mt-1">When and where is it happening?</p>
                                             </div>
                                         </div>
                                     </AccordionTrigger>
@@ -498,19 +634,34 @@ export default function EditEventPage() {
                                                     )}
                                                 />
                                             </div>
-                                            <FormField
-                                                control={form.control}
-                                                name="registration_end"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Registration Deadline</FormLabel>
-                                                        <FormControl>
-                                                            <DateTimePicker value={field.value} onChange={field.onChange} />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
+                                            <div className="grid md:grid-cols-2 gap-6">
+                                                <FormField
+                                                    control={form.control}
+                                                    name="registration_start"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Registration Opens</FormLabel>
+                                                            <FormControl>
+                                                                <DateTimePicker value={field.value} onChange={field.onChange} />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                <FormField
+                                                    control={form.control}
+                                                    name="registration_end"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Registration Deadline</FormLabel>
+                                                            <FormControl>
+                                                                <DateTimePicker value={field.value} onChange={field.onChange} />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
                                         </div>
                                     </AccordionContent>
                                 </AccordionItem>
@@ -523,7 +674,8 @@ export default function EditEventPage() {
                                                 <Trophy className="w-5 h-5" />
                                             </div>
                                             <div className="text-left">
-                                                <p className="font-semibold text-lg leading-none">Prizes & Tracks</p>
+                                                <p className="font-semibold text-lg leading-none">Themes, Tracks & Prizes</p>
+                                                <p className="text-sm text-muted-foreground font-normal mt-1">Define your event categories and rewards</p>
                                             </div>
                                         </div>
                                     </AccordionTrigger>
@@ -535,9 +687,9 @@ export default function EditEventPage() {
                                                     name="prize_pool"
                                                     render={({ field }) => (
                                                         <FormItem>
-                                                            <FormLabel>Prize Pool</FormLabel>
+                                                            <FormLabel>Total Prize Pool Display</FormLabel>
                                                             <FormControl>
-                                                                <Input {...field} />
+                                                                <Input placeholder="e.g. 100000" {...field} />
                                                             </FormControl>
                                                             <FormMessage />
                                                         </FormItem>
@@ -549,7 +701,7 @@ export default function EditEventPage() {
                                                         name="team_min"
                                                         render={({ field }) => (
                                                             <FormItem>
-                                                                <FormLabel>Min</FormLabel>
+                                                                <FormLabel>Min Team Size</FormLabel>
                                                                 <FormControl>
                                                                     <Input type="number" {...field} />
                                                                 </FormControl>
@@ -562,7 +714,7 @@ export default function EditEventPage() {
                                                         name="team_max"
                                                         render={({ field }) => (
                                                             <FormItem>
-                                                                <FormLabel>Max</FormLabel>
+                                                                <FormLabel>Max Team Size</FormLabel>
                                                                 <FormControl>
                                                                     <Input type="number" {...field} />
                                                                 </FormControl>
@@ -571,7 +723,86 @@ export default function EditEventPage() {
                                                         )}
                                                     />
                                                 </div>
+                                                <FormField
+                                                    control={form.control}
+                                                    name="max_participants"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Max Participants (overall)</FormLabel>
+                                                            <FormControl>
+                                                                <Input type="number" placeholder="Leave blank for unlimited" {...field} />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
                                             </div>
+
+                                            <div className="space-y-4">
+                                                <div className="flex items-center justify-between">
+                                                    <FormLabel className="text-base font-semibold">Individual Prizes</FormLabel>
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => appendPrize({ position: "", reward: "" })}
+                                                        className="h-8 border-dashed"
+                                                    >
+                                                        <Plus className="w-4 h-4 mr-2" />
+                                                        Add Prize
+                                                    </Button>
+                                                </div>
+
+                                                {prizeFields.length === 0 && (
+                                                    <div className="text-sm text-muted-foreground text-center py-4 border-2 border-dashed rounded-lg bg-slate-50/50">
+                                                        No specific prizes added yet.
+                                                    </div>
+                                                )}
+
+                                                <div className="space-y-3">
+                                                    {prizeFields.map((field, index) => (
+                                                        <div key={field.id} className="flex gap-3 items-start p-3 bg-white rounded-lg border group shadow-sm">
+                                                            <GripVertical className="w-5 h-5 text-muted-foreground mt-2.5 opacity-20" />
+                                                            <div className="grid md:grid-cols-2 gap-3 flex-1">
+                                                                <FormField
+                                                                    control={form.control}
+                                                                    name={`prizes.${index}.position`}
+                                                                    render={({ field }) => (
+                                                                        <FormItem className="space-y-0">
+                                                                            <FormControl>
+                                                                                <Input placeholder="Position (e.g. 1st Place)" {...field} />
+                                                                            </FormControl>
+                                                                            <FormMessage />
+                                                                        </FormItem>
+                                                                    )}
+                                                                />
+                                                                <FormField
+                                                                    control={form.control}
+                                                                    name={`prizes.${index}.reward`}
+                                                                    render={({ field }) => (
+                                                                        <FormItem className="space-y-0">
+                                                                            <FormControl>
+                                                                                <Input placeholder="Reward (e.g. ₹50,000 + Swags)" {...field} />
+                                                                            </FormControl>
+                                                                            <FormMessage />
+                                                                        </FormItem>
+                                                                    )}
+                                                                />
+                                                            </div>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => removePrize(index)}
+                                                                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </Button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+
                                             <FormField
                                                 control={form.control}
                                                 name="themes"
@@ -602,14 +833,102 @@ export default function EditEventPage() {
                                     </AccordionContent>
                                 </AccordionItem>
 
+                                {/* Application Questions */}
+                                <AccordionItem value="questions" className="bg-white border text-card-foreground shadow-sm rounded-xl px-2">
+                                    <AccordionTrigger className="px-4 hover:no-underline">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                                                <FileQuestion className="w-5 h-5" />
+                                            </div>
+                                            <div className="text-left">
+                                                <p className="font-semibold text-lg leading-none">Application Questions</p>
+                                                <p className="text-sm text-muted-foreground font-normal mt-1">
+                                                    Custom fields like PPT submission, research papers, etc.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="px-4 pb-6 pt-2">
+                                        <QuestionBuilder
+                                            questions={questions}
+                                            onChange={setQuestions}
+                                        />
+                                    </AccordionContent>
+                                </AccordionItem>
+
+                                {/* Co-Organizer Management - Only for main organizer or those with view access */}
+                                <AccordionItem value="cohosts" className="bg-white border text-card-foreground shadow-sm rounded-xl px-2">
+                                    <AccordionTrigger className="px-4 hover:no-underline">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                                                <Users className="w-5 h-5" />
+                                            </div>
+                                            <div className="text-left">
+                                                <p className="font-semibold text-lg leading-none">Co-Organizers</p>
+                                                <p className="text-sm text-muted-foreground font-normal mt-1">
+                                                    {isMainOrganizer ? "Invite team members to help manage this event" : "View event co-organizers"}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="px-4 pb-6 pt-2">
+                                        <CoOrganizerManager
+                                            eventSlug={params.slug}
+                                            isMainOrganizer={isMainOrganizer}
+                                        />
+                                    </AccordionContent>
+                                </AccordionItem>
+
                             </Accordion>
 
-                            <div className="flex justify-end gap-4 sticky bottom-6 z-10">
-                                <Button type="button" variant="outline" className="bg-white/80 backdrop-blur" onClick={() => router.back()}>Discard Changes</Button>
-                                <Button type="submit" size="lg" disabled={saving} className="px-8 gap-2 shadow-lg">
-                                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                                    Save Changes
-                                </Button>
+                            {/* Publish / Status Section */}
+                            <div className="bg-white border p-6 rounded-xl shadow-sm flex items-center justify-between mt-8">
+                                <div>
+                                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                                        <Globe className="w-5 h-5 text-primary" />
+                                        Visibility Status
+                                    </h3>
+                                    <p className="text-sm text-muted-foreground">
+                                        {form.watch('status') === 'published'
+                                            ? "Your event is live and visible to everyone."
+                                            : "Your event is hidden. Publish it to accept registrations."}
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-8">
+                                    <FormField
+                                        control={form.control}
+                                        name="status"
+                                        render={({ field }) => (
+                                            <FormItem className="flex items-center space-y-0 gap-3">
+                                                <FormControl>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`text-sm font-medium ${field.value === 'draft' ? 'text-foreground' : 'text-muted-foreground'}`}>Draft</span>
+                                                        <Switch
+                                                            checked={field.value === 'published'}
+                                                            onCheckedChange={(checked) => field.onChange(checked ? 'published' : 'draft')}
+                                                        />
+                                                        <span className={`text-sm font-medium ${field.value === 'published' ? 'text-primary' : 'text-muted-foreground'}`}>Published</span>
+                                                    </div>
+                                                </FormControl>
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    <div className="flex gap-3">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => router.back()}
+                                            disabled={saving}
+                                        >
+                                            Discard
+                                        </Button>
+                                        <Button type="submit" size="lg" disabled={saving} className="px-8 gap-2 shadow-lg">
+                                            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                            Save Changes
+                                        </Button>
+                                    </div>
+                                </div>
                             </div>
                         </form>
                     </Form>

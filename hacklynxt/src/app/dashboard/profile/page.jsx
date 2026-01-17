@@ -27,6 +27,7 @@ import {
     Building2,
     GraduationCap,
     Calendar,
+    Clock,
     Mail,
     Edit2,
     ExternalLink,
@@ -38,6 +39,7 @@ import {
     CheckCircle2,
     AlertCircle,
 } from "lucide-react";
+import { formatDateRange } from "@/lib/utils";
 
 export default function ProfilePage() {
     const { user, isLoading: authLoading } = useAuth();
@@ -395,7 +397,7 @@ export default function ProfilePage() {
                                                             <span className="w-1.5 h-1.5 rounded-full bg-neutral-300" />
                                                             <span className="flex items-center gap-1.5 text-neutral-500 font-bold text-sm bg-neutral-100 px-3 py-1 rounded-full">
                                                                 <Calendar className="w-3.5 h-3.5" />
-                                                                {exp.start_date} — {exp.current ? "Present" : exp.end_date}
+                                                                {formatDateRange(exp.start_date, exp.end_date, exp.current)}
                                                             </span>
                                                         </div>
                                                     </div>
@@ -442,7 +444,7 @@ export default function ProfilePage() {
                                                             <span className="w-1.5 h-1.5 rounded-full bg-neutral-300" />
                                                             <span className="flex items-center gap-1.5 text-neutral-500 font-bold text-sm bg-neutral-100 px-3 py-1 rounded-full">
                                                                 <Calendar className="w-3.5 h-3.5" />
-                                                                {edu.start_date} — {edu.current ? "Present" : edu.end_date}
+                                                                {formatDateRange(edu.start_date, edu.end_date, edu.current)}
                                                             </span>
                                                         </div>
                                                     </div>

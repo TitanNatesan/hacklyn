@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Image from "next/image";
@@ -35,13 +35,15 @@ import {
 import { OrganizationPicker } from "@/components/ui/OrganizationPicker";
 import {
     MapPin, Trophy, Rocket, ArrowRight, Loader2,
-    Upload, X, ImageIcon, Clock, CalendarIcon
+    Upload, X, ImageIcon, Clock, CalendarIcon, Plus, Trash2, GripVertical, Save, Globe, Shield, FileQuestion
 } from "lucide-react";
-import { eventsAPI } from "@/lib/api";
+import { eventsAPI, authAPI } from "@/lib/api";
 import { toast } from "sonner";
 import { MarkdownEditor } from "@/components/ui/MarkdownEditor";
 import { TagInput } from "@/components/ui/TagInput";
 import { DateTimePicker } from "@/components/ui/DateTimePicker";
+import { Switch } from "@/components/ui/switch";
+import { QuestionBuilder } from "@/components/events/QuestionBuilder";
 
 const eventSchema = z.object({
     name: z.string().min(5, "Name must be at least 5 characters"),
@@ -54,12 +56,27 @@ const eventSchema = z.object({
     city: z.string().optional(),
     start_date: z.string().min(1, "Start date is required"),
     end_date: z.string().min(1, "End date is required"),
+    registration_start: z.string().optional(),
     registration_end: z.string().optional(),
+    organizer_email: z.union([z.string().email("Enter a valid email"), z.literal("")]).optional(),
+    website: z.union([z.string().url("Enter a valid URL"), z.literal("")]).optional(),
+    discord_link: z.union([z.string().url("Enter a valid URL"), z.literal("")]).optional(),
     team_min: z.coerce.number().min(1).default(1),
     team_max: z.coerce.number().min(1).default(4),
+    max_participants: z.union([
+        z.coerce.number().min(1, "Must be at least 1"),
+        z.literal("").transform(() => undefined)
+    ]).optional(),
     prize_pool: z.string().optional(),
+    prizes: z.array(z.object({
+        position: z.string().min(1, "Title/Position is required"),
+        reward: z.string().min(1, "Prize/Reward is required"),
+    })).default([]),
     tracks: z.array(z.string()).default([]),
     themes: z.array(z.string()).default([]),
+    rules: z.string().optional(),
+    eligibility: z.string().optional(),
+    status: z.enum(["draft", "published", "ongoing", "completed", "cancelled"]).default("draft"),
 });
 
 // Image upload component
@@ -137,6 +154,35 @@ export default function CreateEventPage() {
     const [loading, setLoading] = useState(false);
     const [logo, setLogo] = useState(null);
     const [banner, setBanner] = useState(null);
+    const [questions, setQuestions] = useState([]);
+    const [checkingProfile, setCheckingProfile] = useState(true);
+
+    // Check profile completion on mount
+    useEffect(() => {
+        const checkProfile = async () => {
+            try {
+                const user = await authAPI.getMe();
+                if (!user?.is_profile_complete) {
+                    toast.error(
+                        "Please complete your profile before hosting an event",
+                        {
+                            description: "You need a resume, GitHub link, LinkedIn link, and at least one education entry.",
+                            duration: 5000,
+                        }
+                    );
+                    router.push("/dashboard/profile");
+                    return;
+                }
+            } catch (error) {
+                console.error("Failed to check profile:", error);
+                toast.error("Please log in to host an event");
+                router.push("/login");
+                return;
+            }
+            setCheckingProfile(false);
+        };
+        checkProfile();
+    }, [router]);
 
     const form = useForm({
         resolver: zodResolver(eventSchema),
@@ -151,13 +197,27 @@ export default function CreateEventPage() {
             city: "",
             start_date: "",
             end_date: "",
+            registration_start: "",
             registration_end: "",
+            organizer_email: "",
+            website: "",
+            discord_link: "",
             prize_pool: "",
+            prizes: [],
             team_min: 1,
             team_max: 4,
+            max_participants: "",
             tracks: [],
             themes: [],
+            rules: "",
+            eligibility: "",
+            status: "draft",
         },
+    });
+
+    const { fields: prizeFields, append: appendPrize, remove: removePrize } = useFieldArray({
+        control: form.control,
+        name: "prizes",
     });
 
     const onSubmit = async (data) => {
@@ -168,11 +228,8 @@ export default function CreateEventPage() {
 
             // Add text fields
             Object.entries(data).forEach(([key, value]) => {
-                if (value !== undefined && value !== null) {
+                if (value !== undefined && value !== null && key !== 'prizes') {
                     if (Array.isArray(value)) {
-                        // Convert arrays to comma-separated strings for backend
-                        // Or keep as json string if backend supports it, but standard multipart usually expects simple values
-                        // Keeping existing logic: join ", "
                         formData.append(key, value.join(", "));
                     } else if (typeof value === 'boolean') {
                         formData.append(key, value ? 'true' : 'false');
@@ -182,13 +239,28 @@ export default function CreateEventPage() {
                 }
             });
 
+            if (data.prizes) {
+                formData.append("prizes_data", JSON.stringify(data.prizes));
+            }
+
             // Add image files
             if (logo) formData.append("logo", logo);
             if (banner) formData.append("cover_image", banner);
 
             const response = await eventsAPI.create(formData, true); // true for multipart
+
+            // Save questions if any were added
+            if (questions.length > 0) {
+                try {
+                    await eventsAPI.bulkSaveQuestions(response.slug, questions);
+                } catch (questionError) {
+                    console.error("Failed to save questions:", questionError);
+                    toast.warning("Event created but questions could not be saved. You can add them later.");
+                }
+            }
+
             toast.success("Event created successfully!");
-            router.push(`/events/${response.id}`);
+            router.push(`/events/${response.slug}`);
         } catch (error) {
             console.error("Failed to create event:", error);
             toast.error(error.response?.data?.detail || "Failed to create event. Please try again.");
@@ -196,6 +268,17 @@ export default function CreateEventPage() {
             setLoading(false);
         }
     };
+
+    if (checkingProfile) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+                <div className="flex flex-col items-center gap-4">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="text-muted-foreground">Checking your profile...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen flex flex-col bg-slate-50">
@@ -298,6 +381,49 @@ export default function CreateEventPage() {
                                                     </FormItem>
                                                 )}
                                             />
+
+                                            {/* Organizer Contact Fields */}
+                                            <div className="grid md:grid-cols-3 gap-6">
+                                                <FormField
+                                                    control={form.control}
+                                                    name="organizer_email"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Organizer Email</FormLabel>
+                                                            <FormControl>
+                                                                <Input type="email" placeholder="contact@yourorg.com" {...field} />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                <FormField
+                                                    control={form.control}
+                                                    name="website"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Website</FormLabel>
+                                                            <FormControl>
+                                                                <Input placeholder="https://example.com" {...field} />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                <FormField
+                                                    control={form.control}
+                                                    name="discord_link"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Discord / Community Link</FormLabel>
+                                                            <FormControl>
+                                                                <Input placeholder="https://discord.gg/your-event" {...field} />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
 
                                             {/* Image Uploads */}
                                             <div className="grid md:grid-cols-2 gap-6">
@@ -409,30 +535,43 @@ export default function CreateEventPage() {
                                                 />
                                             </div>
 
-                                            {/* Registration Deadline */}
-                                            <FormField
-                                                control={form.control}
-                                                name="registration_end"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel className="flex items-center gap-2">
-                                                            <Clock className="h-4 w-4" />
-                                                            Registration Deadline
-                                                        </FormLabel>
-                                                        <FormControl>
-                                                            <DateTimePicker
-                                                                value={field.value}
-                                                                onChange={field.onChange}
-                                                                placeholder="Select deadline"
-                                                            />
-                                                        </FormControl>
-                                                        <FormDescription>
-                                                            Last date and time for participants to register
-                                                        </FormDescription>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
+                                            {/* Registration Dates */}
+                                            <div className="grid md:grid-cols-2 gap-6">
+                                                <FormField
+                                                    control={form.control}
+                                                    name="registration_start"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Registration Opens</FormLabel>
+                                                            <FormControl>
+                                                                <DateTimePicker
+                                                                    value={field.value}
+                                                                    onChange={field.onChange}
+                                                                    placeholder="Select start time"
+                                                                />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                <FormField
+                                                    control={form.control}
+                                                    name="registration_end"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Registration Deadline</FormLabel>
+                                                            <FormControl>
+                                                                <DateTimePicker
+                                                                    value={field.value}
+                                                                    onChange={field.onChange}
+                                                                    placeholder="Select deadline"
+                                                                />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
                                         </div>
                                     </AccordionContent>
                                 </AccordionItem>
@@ -458,7 +597,7 @@ export default function CreateEventPage() {
                                                     name="prize_pool"
                                                     render={({ field }) => (
                                                         <FormItem>
-                                                            <FormLabel>Prize Pool</FormLabel>
+                                                            <FormLabel>Total Prize Pool Display</FormLabel>
                                                             <FormControl>
                                                                 <Input placeholder="e.g. ₹50,000" {...field} />
                                                             </FormControl>
@@ -495,8 +634,85 @@ export default function CreateEventPage() {
                                                     />
                                                 </div>
                                             </div>
+                                            <FormField
+                                                control={form.control}
+                                                name="max_participants"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Max Participants (overall)</FormLabel>
+                                                        <FormControl>
+                                                            <Input type="number" placeholder="Leave blank for unlimited" {...field} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
 
-                                            {/* Tag Inputs for Themes and Tracks */}
+                                            <div className="space-y-4">
+                                                <div className="flex items-center justify-between">
+                                                    <FormLabel className="text-base font-semibold">Individual Prizes</FormLabel>
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => appendPrize({ position: "", reward: "" })}
+                                                        className="h-8 border-dashed"
+                                                    >
+                                                        <Plus className="w-4 h-4 mr-2" />
+                                                        Add Prize
+                                                    </Button>
+                                                </div>
+
+                                                {prizeFields.length === 0 && (
+                                                    <div className="text-sm text-muted-foreground text-center py-4 border-2 border-dashed rounded-lg bg-slate-50/50">
+                                                        No specific prizes added yet.
+                                                    </div>
+                                                )}
+
+                                                <div className="space-y-3">
+                                                    {prizeFields.map((field, index) => (
+                                                        <div key={field.id} className="flex gap-3 items-start p-3 bg-white rounded-lg border group shadow-sm">
+                                                            <GripVertical className="w-5 h-5 text-muted-foreground mt-2.5 opacity-20" />
+                                                            <div className="grid md:grid-cols-2 gap-3 flex-1">
+                                                                <FormField
+                                                                    control={form.control}
+                                                                    name={`prizes.${index}.position`}
+                                                                    render={({ field }) => (
+                                                                        <FormItem className="space-y-0">
+                                                                            <FormControl>
+                                                                                <Input placeholder="Position (e.g. 1st Place)" {...field} />
+                                                                            </FormControl>
+                                                                            <FormMessage />
+                                                                        </FormItem>
+                                                                    )}
+                                                                />
+                                                                <FormField
+                                                                    control={form.control}
+                                                                    name={`prizes.${index}.reward`}
+                                                                    render={({ field }) => (
+                                                                        <FormItem className="space-y-0">
+                                                                            <FormControl>
+                                                                                <Input placeholder="Reward (e.g. ₹50,000 + Swags)" {...field} />
+                                                                            </FormControl>
+                                                                            <FormMessage />
+                                                                        </FormItem>
+                                                                    )}
+                                                                />
+                                                            </div>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => removePrize(index)}
+                                                                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </Button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+
                                             <FormField
                                                 control={form.control}
                                                 name="themes"
@@ -541,7 +757,115 @@ export default function CreateEventPage() {
                                         </div>
                                     </AccordionContent>
                                 </AccordionItem>
+
+                                {/* Rules & Eligibility */}
+                                <AccordionItem value="rules" className="bg-white border text-card-foreground shadow-sm rounded-xl px-2">
+                                    <AccordionTrigger className="px-4 hover:no-underline">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                                                <Shield className="w-5 h-5" />
+                                            </div>
+                                            <div className="text-left">
+                                                <p className="font-semibold text-lg leading-none">Rules & Eligibility</p>
+                                            </div>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="px-4 pb-6 pt-2">
+                                        <div className="space-y-6">
+                                            <FormField
+                                                control={form.control}
+                                                name="rules"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Rules</FormLabel>
+                                                        <FormControl>
+                                                            <MarkdownEditor
+                                                                value={field.value || ""}
+                                                                onChange={field.onChange}
+                                                                minHeight="150px"
+                                                            />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control}
+                                                name="eligibility"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Eligibility</FormLabel>
+                                                        <FormControl>
+                                                            <MarkdownEditor
+                                                                value={field.value || ""}
+                                                                onChange={field.onChange}
+                                                                minHeight="150px"
+                                                            />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+
+                                {/* Application Questions */}
+                                <AccordionItem value="questions" className="bg-white border text-card-foreground shadow-sm rounded-xl px-2">
+                                    <AccordionTrigger className="px-4 hover:no-underline">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                                                <FileQuestion className="w-5 h-5" />
+                                            </div>
+                                            <div className="text-left">
+                                                <p className="font-semibold text-lg leading-none">Application Questions</p>
+                                                <p className="text-sm text-muted-foreground font-normal mt-1">
+                                                    Custom fields like PPT submission, research papers, etc.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="px-4 pb-6 pt-2">
+                                        <QuestionBuilder
+                                            questions={questions}
+                                            onChange={setQuestions}
+                                        />
+                                    </AccordionContent>
+                                </AccordionItem>
                             </Accordion>
+
+                            {/* Publish / Status Section */}
+                            <div className="bg-white border p-6 rounded-xl shadow-sm flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                                        <Globe className="w-5 h-5 text-primary" />
+                                        Visibility Status
+                                    </h3>
+                                    <p className="text-sm text-muted-foreground">
+                                        {form.watch('status') === 'published'
+                                            ? "Your event will be live and visible to everyone."
+                                            : "Your event will be saved as draft. Publish it to accept registrations."}
+                                    </p>
+                                </div>
+                                <FormField
+                                    control={form.control}
+                                    name="status"
+                                    render={({ field }) => (
+                                        <FormItem className="flex items-center space-y-0 gap-3">
+                                            <FormControl>
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`text-sm font-medium ${field.value === 'draft' ? 'text-foreground' : 'text-muted-foreground'}`}>Draft</span>
+                                                    <Switch
+                                                        checked={field.value === 'published'}
+                                                        onCheckedChange={(checked) => field.onChange(checked ? 'published' : 'draft')}
+                                                    />
+                                                    <span className={`text-sm font-medium ${field.value === 'published' ? 'text-primary' : 'text-muted-foreground'}`}>Published</span>
+                                                </div>
+                                            </FormControl>
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
 
                             <div className="flex justify-end gap-4">
                                 <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>

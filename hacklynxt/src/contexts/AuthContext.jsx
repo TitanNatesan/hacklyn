@@ -104,10 +104,16 @@ export function AuthProvider({ children }) {
         authAPI.setUser(userData);
     }, []);
 
+    // Computed values
+    const emailVerified = user?.email_verified ?? false;
+    const isProfileComplete = user?.is_profile_complete ?? false;
+
     const value = {
         user,
         isAuthenticated,
         isLoading,
+        emailVerified,
+        isProfileComplete,
         login,
         register,
         logout,

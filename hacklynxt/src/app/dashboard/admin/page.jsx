@@ -182,9 +182,9 @@ export default function AdminDashboard() {
                         <CardContent>
                             <div className="space-y-4">
                                 {(pendingEvents.length > 0 ? pendingEvents : [
-                                    { id: 1, name: "AI Innovation Challenge", organizer: "Tech Club", date: "2024-02-15" },
-                                    { id: 2, name: "Web Dev Workshop", organizer: "CS Society", date: "2024-02-20" },
-                                    { id: 3, name: "Mobile App Hackathon", organizer: "App Dev Club", date: "2024-03-01" },
+                                    { id: 1, slug: "ai-innovation-challenge", name: "AI Innovation Challenge", organizer: "Tech Club", date: "2024-02-15" },
+                                    { id: 2, slug: "web-dev-workshop", name: "Web Dev Workshop", organizer: "CS Society", date: "2024-02-20" },
+                                    { id: 3, slug: "mobile-app-hackathon", name: "Mobile App Hackathon", organizer: "App Dev Club", date: "2024-03-01" },
                                 ]).map((event) => (
                                     <div
                                         key={event.id}
@@ -200,13 +200,13 @@ export default function AdminDashboard() {
                                             <Button
                                                 size="sm"
                                                 variant="outline"
-                                                onClick={() => handleRejectEvent(event.id)}
+                                                onClick={() => handleRejectEvent(event.slug)}
                                             >
                                                 <Ban className="h-4 w-4" />
                                             </Button>
                                             <Button
                                                 size="sm"
-                                                onClick={() => handleApproveEvent(event.id)}
+                                                onClick={() => handleApproveEvent(event.slug)}
                                             >
                                                 <CheckCircle2 className="h-4 w-4" />
                                             </Button>

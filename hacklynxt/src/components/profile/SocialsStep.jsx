@@ -25,10 +25,11 @@ export function SocialsStep() {
                 <FormField
                     control={control}
                     name="github"
+                    rules={{ required: "GitHub URL is required" }}
                     render={({ field }) => (
                         <FormItem>
                             <FormLabel className="flex items-center gap-2">
-                                <Github className="w-4 h-4" /> GitHub
+                                <Github className="w-4 h-4" /> GitHub <span className="text-destructive">*</span>
                             </FormLabel>
                             <FormControl>
                                 <Input placeholder="https://github.com/username" {...field} />
@@ -41,10 +42,11 @@ export function SocialsStep() {
                 <FormField
                     control={control}
                     name="linkedin"
+                    rules={{ required: "LinkedIn URL is required" }}
                     render={({ field }) => (
                         <FormItem>
                             <FormLabel className="flex items-center gap-2">
-                                <Linkedin className="w-4 h-4 text-primary" /> LinkedIn
+                                <Linkedin className="w-4 h-4 text-primary" /> LinkedIn <span className="text-destructive">*</span>
                             </FormLabel>
                             <FormControl>
                                 <Input placeholder="https://linkedin.com/in/username" {...field} />

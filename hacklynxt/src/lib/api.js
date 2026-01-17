@@ -260,9 +260,9 @@ export const authAPI = {
     },
 
     // Email OTP methods
-    async sendEmailOTP() {
+    async sendEmailOTP(email = null) {
         try {
-            const response = await apiClient.post('/auth/email/send-otp/');
+            const response = await apiClient.post('/auth/email/send-otp/', email ? { email } : {});
             return { ok: true, data: response.data };
         } catch (error) {
             return {
@@ -272,9 +272,11 @@ export const authAPI = {
         }
     },
 
-    async verifyEmailOTP(otp) {
+    async verifyEmailOTP(otp, email = null) {
         try {
-            const response = await apiClient.post('/auth/email/verify-otp/', { otp });
+            const payload = { otp };
+            if (email) payload.email = email;
+            const response = await apiClient.post('/auth/email/verify-otp/', payload);
             const result = response.data;
             if (result.user) {
                 this.setUser(result.user);
@@ -284,6 +286,55 @@ export const authAPI = {
             return {
                 ok: false,
                 data: error.response?.data || { error: 'Failed to verify OTP' }
+            };
+        }
+    },
+
+    // Email management methods
+    async getEmails() {
+        try {
+            const response = await apiClient.get('/auth/emails/');
+            return { ok: true, data: response.data };
+        } catch (error) {
+            return {
+                ok: false,
+                data: error.response?.data || { error: 'Failed to get emails' }
+            };
+        }
+    },
+
+    async addEmail(email) {
+        try {
+            const response = await apiClient.post('/auth/emails/', { email });
+            return { ok: true, data: response.data };
+        } catch (error) {
+            return {
+                ok: false,
+                data: error.response?.data || { error: 'Failed to add email' }
+            };
+        }
+    },
+
+    async setPrimaryEmail(emailId) {
+        try {
+            const response = await apiClient.post(`/auth/emails/${emailId}/set-primary/`);
+            return { ok: true, data: response.data };
+        } catch (error) {
+            return {
+                ok: false,
+                data: error.response?.data || { error: 'Failed to set primary email' }
+            };
+        }
+    },
+
+    async deleteEmail(emailId) {
+        try {
+            const response = await apiClient.delete(`/auth/emails/${emailId}/delete/`);
+            return { ok: true, data: response.data };
+        } catch (error) {
+            return {
+                ok: false,
+                data: error.response?.data || { error: 'Failed to delete email' }
             };
         }
     },
@@ -416,13 +467,8 @@ export const eventsAPI = {
         return response.data;
     },
 
-    async get(id) {
-        const response = await publicClient.get(`/events/${id}/`);
-        return response.data;
-    },
-
-    async getBySlug(slug) {
-        const response = await publicClient.get(`/events/by-slug/${slug}/`);
+    async get(slug) {
+        const response = await publicClient.get(`/events/${slug}/`);
         return response.data;
     },
 
@@ -437,19 +483,19 @@ export const eventsAPI = {
         return response.data;
     },
 
-    async update(id, data) {
+    async update(slug, data) {
         const config = {};
         if (data instanceof FormData) {
             config.headers = {
                 'Content-Type': 'multipart/form-data',
             };
         }
-        const response = await apiClient.patch(`/events/${id}/`, data, config);
+        const response = await apiClient.patch(`/events/${slug}/`, data, config);
         return response.data;
     },
 
-    async delete(id) {
-        await apiClient.delete(`/events/${id}/`);
+    async delete(slug) {
+        await apiClient.delete(`/events/${slug}/`);
         return { success: true };
     },
 
@@ -463,42 +509,84 @@ export const eventsAPI = {
         return response.data;
     },
 
-    async apply(eventId, data = {}) {
-        const response = await apiClient.post(`/events/${eventId}/apply/`, data);
+    async apply(slug, data = {}) {
+        const response = await apiClient.post(`/events/${slug}/apply/`, data);
         return response.data;
     },
 
-    async getApplications(eventId, filters = {}) {
-        const response = await apiClient.get(`/events/${eventId}/applications/`, { params: filters });
+    async getApplications(slug, filters = {}) {
+        const response = await apiClient.get(`/events/${slug}/applications/`, { params: filters });
         return response.data;
     },
 
-    async reviewApplication(eventId, applicationId, action, reason = '') {
+    async reviewApplication(slug, applicationId, action, reason = '') {
         const response = await apiClient.post(
-            `/events/${eventId}/applications/${applicationId}/review/`,
+            `/events/${slug}/applications/${applicationId}/review/`,
             { action, reason }
         );
         return response.data;
     },
 
     // Sub-resources (Prizes, Sponsors)
-    async getPrizes(eventId) {
-        const response = await publicClient.get(`/events/${eventId}/prizes/`);
+    async getPrizes(slug) {
+        const response = await publicClient.get(`/events/${slug}/prizes/`);
         return response.data;
     },
 
-    async addPrize(eventId, data) {
-        const response = await apiClient.post(`/events/${eventId}/prizes/`, data);
+    async addPrize(slug, data) {
+        const response = await apiClient.post(`/events/${slug}/prizes/`, data);
         return response.data;
     },
 
-    async getSponsors(eventId) {
-        const response = await publicClient.get(`/events/${eventId}/sponsors/`);
+    async getSponsors(slug) {
+        const response = await publicClient.get(`/events/${slug}/sponsors/`);
         return response.data;
     },
 
-    async addSponsor(eventId, data) {
-        const response = await apiClient.post(`/events/${eventId}/sponsors/`, data);
+    async addSponsor(slug, data) {
+        const response = await apiClient.post(`/events/${slug}/sponsors/`, data);
+        return response.data;
+    },
+
+    // Event Questions (Application Form Builder)
+    async getQuestions(slug) {
+        const response = await publicClient.get(`/events/${slug}/questions/public/`);
+        return response.data;
+    },
+
+    async getQuestionsAdmin(slug) {
+        const response = await apiClient.get(`/events/${slug}/questions/`);
+        return response.data;
+    },
+
+    async createQuestion(slug, data) {
+        const response = await apiClient.post(`/events/${slug}/questions/`, data);
+        return response.data;
+    },
+
+    async updateQuestion(questionId, data) {
+        const response = await apiClient.patch(`/questions/${questionId}/`, data);
+        return response.data;
+    },
+
+    async deleteQuestion(questionId) {
+        await apiClient.delete(`/questions/${questionId}/`);
+        return { success: true };
+    },
+
+    async bulkSaveQuestions(slug, questions) {
+        const response = await apiClient.post(`/events/${slug}/questions/bulk/`, { questions });
+        return response.data;
+    },
+
+    // Application with responses
+    async applyWithResponses(slug, formData) {
+        const config = {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        };
+        const response = await apiClient.post(`/events/${slug}/apply/submit/`, formData, config);
         return response.data;
     },
 };
@@ -525,8 +613,8 @@ export const applicationsAPI = {
 // ==================== Teams API ====================
 
 export const teamsAPI = {
-    async list(eventId) {
-        const response = await apiClient.get(`/events/${eventId}/teams/`);
+    async list(slug) {
+        const response = await apiClient.get(`/events/${slug}/teams/`);
         return response.data;
     },
 
@@ -540,8 +628,38 @@ export const teamsAPI = {
         return response.data;
     },
 
-    async create(eventId, data) {
-        const response = await apiClient.post(`/events/${eventId}/teams/`, data);
+    async create(slug, data) {
+        const response = await apiClient.post(`/events/${slug}/teams/`, data);
+        return response.data;
+    },
+
+    // New: Create team with team code
+    async createWithCode(slug, data) {
+        const response = await apiClient.post(`/events/${slug}/teams/create/`, data);
+        return response.data;
+    },
+
+    // New: Join team using team code
+    async joinByCode(teamCode, role = '') {
+        const response = await apiClient.post('/teams/join/', { team_code: teamCode, role });
+        return response.data;
+    },
+
+    // New: Get team details by team code (preview before joining)
+    async getByCode(teamCode) {
+        const response = await apiClient.get(`/teams/by-code/${teamCode}/`);
+        return response.data;
+    },
+
+    // New: Mark team as complete
+    async complete(teamId) {
+        const response = await apiClient.post(`/teams/${teamId}/complete/`);
+        return response.data;
+    },
+
+    // New: Submit team application
+    async submitApplication(teamId) {
+        const response = await apiClient.post(`/teams/${teamId}/submit/`);
         return response.data;
     },
 
@@ -587,6 +705,110 @@ export const teamsAPI = {
 
     async submit(teamId) {
         const response = await apiClient.post(`/teams/${teamId}/submit/`);
+        return response.data;
+    },
+
+    // New: Team documents
+    async getDocuments(teamId) {
+        const response = await apiClient.get(`/teams/${teamId}/documents/`);
+        return response.data;
+    },
+
+    async uploadDocument(teamId, data) {
+        const config = {};
+        if (data instanceof FormData) {
+            config.headers = { 'Content-Type': 'multipart/form-data' };
+        }
+        const response = await apiClient.post(`/teams/${teamId}/documents/`, data, config);
+        return response.data;
+    },
+
+    async deleteDocument(documentId) {
+        await apiClient.delete(`/documents/${documentId}/`);
+        return { success: true };
+    },
+};
+
+// ==================== Co-Hosts API ====================
+
+export const cohostsAPI = {
+    async list(slug) {
+        const response = await apiClient.get(`/events/${slug}/cohosts/`);
+        return response.data;
+    },
+
+    async invite(slug, identifier, permissions = {}) {
+        const payload = {
+            identifier,
+            can_review_applications: permissions.canReviewApplications ?? true,
+            can_edit_event: permissions.canEditEvent ?? false,
+        };
+        const response = await apiClient.post(`/events/${slug}/cohosts/invite/`, payload);
+        return response.data;
+    },
+
+    async accept(cohostId) {
+        const response = await apiClient.post(`/cohosts/${cohostId}/accept/`);
+        return response.data;
+    },
+
+    async reject(cohostId) {
+        const response = await apiClient.post(`/cohosts/${cohostId}/reject/`);
+        return response.data;
+    },
+
+    async myInvites() {
+        const response = await apiClient.get('/cohosts/my/');
+        return response.data;
+    },
+
+    async updatePermissions(slug, cohostId, permissions) {
+        const payload = {};
+        if (permissions.canReviewApplications !== undefined) {
+            payload.can_review_applications = permissions.canReviewApplications;
+        }
+        if (permissions.canEditEvent !== undefined) {
+            payload.can_edit_event = permissions.canEditEvent;
+        }
+        const response = await apiClient.patch(`/events/${slug}/cohosts/${cohostId}/permissions/`, payload);
+        return response.data;
+    },
+
+    async remove(slug, cohostId) {
+        const response = await apiClient.delete(`/events/${slug}/cohosts/${cohostId}/remove/`);
+        return response.data;
+    },
+};
+
+// ==================== Event Requirements API ====================
+
+export const requirementsAPI = {
+    async list(slug) {
+        const response = await publicClient.get(`/events/${slug}/requirements/`);
+        return response.data;
+    },
+
+    async create(slug, data) {
+        const response = await apiClient.post(`/events/${slug}/requirements/`, data);
+        return response.data;
+    },
+
+    async update(requirementId, data) {
+        const response = await apiClient.patch(`/requirements/${requirementId}/`, data);
+        return response.data;
+    },
+
+    async delete(requirementId) {
+        await apiClient.delete(`/requirements/${requirementId}/`);
+        return { success: true };
+    },
+};
+
+// ==================== Solo Application API ====================
+
+export const soloApplicationAPI = {
+    async apply(slug, data = {}) {
+        const response = await apiClient.post(`/events/${slug}/apply/solo/`, data);
         return response.data;
     },
 };
@@ -655,18 +877,18 @@ export const adminAPI = {
         return response.data;
     },
 
-    async approveEvent(eventId) {
+    async approveEvent(slug) {
         try {
-            const response = await apiClient.post(`/admin/events/${eventId}/approve/`);
+            const response = await apiClient.post(`/admin/events/${slug}/approve/`);
             return { ok: true, data: response.data };
         } catch (error) {
             return { ok: false, data: error.response?.data || {} };
         }
     },
 
-    async rejectEvent(eventId, reason) {
+    async rejectEvent(slug, reason) {
         try {
-            const response = await apiClient.post(`/admin/events/${eventId}/reject/`, { reason });
+            const response = await apiClient.post(`/admin/events/${slug}/reject/`, { reason });
             return { ok: true, data: response.data };
         } catch (error) {
             return { ok: false, data: error.response?.data || {} };
@@ -710,8 +932,8 @@ export const judgeAPI = {
         return response.data;
     },
 
-    async getSubmissions(eventId) {
-        const response = await apiClient.get(`/judge/events/${eventId}/submissions/`);
+    async getSubmissions(slug) {
+        const response = await apiClient.get(`/judge/events/${slug}/submissions/`);
         return response.data;
     },
 
@@ -749,6 +971,9 @@ export const api = {
     events: eventsAPI,
     applications: applicationsAPI,
     teams: teamsAPI,
+    cohosts: cohostsAPI,
+    requirements: requirementsAPI,
+    soloApplication: soloApplicationAPI,
     dashboard: dashboardAPI,
     admin: adminAPI,
     judge: judgeAPI,

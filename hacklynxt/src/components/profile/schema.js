@@ -9,14 +9,14 @@ export const profileSchema = z.object({
     skills: z.array(z.string()).min(1, "At least one skill is required"),
     location: z.string().min(2, "Location is required"),
 
-    // Education
+    // Education - REQUIRED for profile completion
     education: z.array(z.object({
         degree: z.string().min(1, "Degree is required"),
         school: z.string().min(1, "School is required"),
         startDate: z.string().min(1, "Start date is required"),
         endDate: z.string().optional(),
         current: z.boolean().default(false),
-    })).min(1, "Please add at least one education"),
+    })).min(1, "At least one education entry is required"),
 
     // Work Experience
     workExperience: z.array(z.object({
@@ -28,14 +28,14 @@ export const profileSchema = z.object({
         current: z.boolean().default(false),
     })).default([]),
 
-    // Projects
+    // Projects - FULLY OPTIONAL
     projects: z.array(z.object({
-        title: z.string().min(1, "Title is required"),
-        description: z.string().min(1, "Description is required"),
-        technologies: z.array(z.string()).min(1, "Technologies are required"),
+        title: z.string().optional().default(""),
+        description: z.string().optional().default(""),
+        technologies: z.array(z.string()).optional().default([]),
         link: z.string().url("Must be a valid URL").optional().or(z.literal("")),
-        role: z.string().min(1, "Role is required"),
-    })).default([]),
+        role: z.string().optional().default(""),
+    })).optional().default([]),
 
     // Hackathons
     hackathons: z.array(z.object({
@@ -55,9 +55,15 @@ export const profileSchema = z.object({
         link: z.string().url("Must be a valid URL").optional().or(z.literal("")),
     })).default([]),
 
-    // Socials
-    github: z.string().url("Must be a valid URL").optional().or(z.literal("")),
-    linkedin: z.string().url("Must be a valid URL").optional().or(z.literal("")),
+    // Resume - REQUIRED for hosting/applying to events
+    resume: z.any()
+        .refine((val) => val !== null && val !== undefined && val !== "", {
+            message: "Resume is required for hosting or applying to events",
+        }),
+
+    // Socials - GitHub and LinkedIn are REQUIRED
+    github: z.string().min(1, "GitHub URL is required").url("Must be a valid GitHub URL"),
+    linkedin: z.string().min(1, "LinkedIn URL is required").url("Must be a valid LinkedIn URL"),
     twitter: z.string().url("Must be a valid URL").optional().or(z.literal("")),
     website: z.string().url("Must be a valid URL").optional().or(z.literal("")),
 

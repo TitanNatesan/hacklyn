@@ -193,9 +193,21 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
         user = super().save_user(request, sociallogin, form)
         
         # Auto-verify email for OAuth users (Google/GitHub have already verified)
-        if not user.email_verified:
-            user.email_verified = True
-            user.save()
+        # Fix: Create/Update Email model instance instead of setting property
+        if user.email:
+            from index.models import Email
+            email_obj, created = Email.objects.get_or_create(
+                user=user, 
+                email=user.email
+            )
+            if not email_obj.is_verified:
+                email_obj.is_verified = True
+                email_obj.save()
+            
+            # Ensure at least one primary email
+            if not user.emails.filter(is_primary=True).exists():
+                email_obj.is_primary = True
+                email_obj.save()
         
         # Create profile if it doesn't exist
         from index.models import Profile

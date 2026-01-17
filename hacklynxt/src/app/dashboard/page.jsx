@@ -22,9 +22,12 @@ import {
     Target
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { eventsAPI, dashboardAPI, applicationsAPI, profileAPI } from "@/lib/api";
+import { eventsAPI, dashboardAPI, applicationsAPI, profileAPI, cohostsAPI } from "@/lib/api";
 import { calculateProfileStrength, getNextRequiredAction } from "@/lib/profileUtils";
+import { getRelativeTime } from "@/lib/utils";
 
+
+import { toast } from "sonner";
 
 function DashboardContent() {
     const router = useRouter();
@@ -34,17 +37,41 @@ function DashboardContent() {
     const [applications, setApplications] = useState([]);
     const [statsData, setStatsData] = useState(null);
     const [profileData, setProfileData] = useState(null);
+    const [invites, setInvites] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    const handleInviteResponse = async (inviteId, accept) => {
+        try {
+            if (accept) {
+                await cohostsAPI.accept(inviteId);
+                toast.success("Invitation accepted!");
+            } else {
+                await cohostsAPI.reject(inviteId);
+                toast.success("Invitation declined.");
+            }
+            // Refresh invites and organized events
+            const [invitesRes, organizedRes] = await Promise.all([
+                cohostsAPI.myInvites(),
+                eventsAPI.getMyEvents()
+            ]);
+            setInvites(invitesRes || []);
+            setOrganizedEvents(organizedRes.results || organizedRes || []);
+        } catch (error) {
+            console.error("Failed to respond to invite:", error);
+            toast.error("Failed to process invitation.");
+        }
+    };
 
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
-                const [eventsRes, organizedRes, statsRes, appsRes, profileRes] = await Promise.all([
+                const [eventsRes, organizedRes, statsRes, appsRes, profileRes, invitesRes] = await Promise.all([
                     eventsAPI.list(),
                     eventsAPI.getMyEvents(),
                     dashboardAPI.getStats(),
                     applicationsAPI.myApplications(),
                     profileAPI.get(),
+                    cohostsAPI.myInvites(),
                 ]);
 
                 setEvents(eventsRes.results || eventsRes || []);
@@ -52,6 +79,7 @@ function DashboardContent() {
                 setStatsData(statsRes);
                 setApplications(appsRes.results || appsRes || []);
                 setProfileData(profileRes);
+                setInvites(invitesRes || []);
             } catch (error) {
                 console.error("Failed to fetch dashboard data:", error);
             } finally {
@@ -135,6 +163,57 @@ function DashboardContent() {
                 <div className="grid lg:grid-cols-3 gap-8">
                     {/* Main Content Area */}
                     <div className="lg:col-span-2 space-y-8">
+                        {/* Invites Section - Only if pending invites exist */}
+                        {invites.length > 0 && (
+                            <Card className="border border-indigo-200/60 shadow-xl bg-white/80 backdrop-blur-2xl overflow-hidden rounded-2xl">
+                                <CardHeader className="pb-4 pt-6 px-6 bg-gradient-to-br from-indigo-50/50 via-white to-purple-50/30">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+                                            <Users className="h-6 w-6 text-white" />
+                                        </div>
+                                        <div>
+                                            <CardTitle className="text-xl font-bold text-foreground tracking-tight">Pending Invitations</CardTitle>
+                                            <CardDescription className="text-sm text-muted-foreground mt-0.5">You have been invited to co-host events</CardDescription>
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="p-0">
+                                    <div className="divide-y divide-neutral-100">
+                                        {invites.map((invite) => (
+                                            <div key={invite.id} className="flex items-center justify-between p-5 hover:bg-indigo-50/30 transition-all">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold">
+                                                        {invite.event_name?.[0] || 'E'}
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-bold text-foreground">{invite.event_name}</h4>
+                                                        <p className="text-sm text-muted-foreground">Invited by organizer</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="border-destructive text-destructive hover:bg-destructive/10"
+                                                        onClick={() => handleInviteResponse(invite.id, false)}
+                                                    >
+                                                        Decline
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                                                        onClick={() => handleInviteResponse(invite.id, true)}
+                                                    >
+                                                        Accept
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
                         {/* My Applications - Premium Redesign */}
                         <Card className="border border-white/60 shadow-xl bg-white/70 backdrop-blur-2xl overflow-hidden rounded-2xl">
                             <CardHeader className="pb-4 pt-6 px-6 bg-gradient-to-br from-french-blue-50/50 via-white to-turquoise-surf-50/30">
@@ -193,7 +272,7 @@ function DashboardContent() {
                                             <div
                                                 key={app.id}
                                                 className="flex items-center gap-4 p-5 hover:bg-french-blue-50/30 transition-all cursor-pointer group"
-                                                onClick={() => router.push(`/events/${app.event?.id}`)}
+                                                onClick={() => router.push(`/events/${app.event?.slug}`)}
                                                 style={{ animationDelay: `${idx * 50}ms` }}
                                             >
                                                 <div className="w-14 h-14 rounded-xl bg-white border border-neutral-100 shadow-md flex items-center justify-center shrink-0 overflow-hidden relative group-hover:shadow-lg group-hover:scale-105 transition-all">
@@ -211,13 +290,13 @@ function DashboardContent() {
                                                     </h4>
                                                     <p className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
                                                         <Calendar className="w-3.5 h-3.5" />
-                                                        Applied {new Date(app.applied_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                                        Applied {getRelativeTime(app.applied_at)}
                                                     </p>
                                                 </div>
                                                 <div className="flex items-center gap-3">
                                                     <Badge className={`font-semibold capitalize px-3 py-1 rounded-full text-xs ${app.status === 'approved' ? 'bg-success/15 text-success border-0' :
-                                                            app.status === 'rejected' ? 'bg-destructive/15 text-destructive border-0' :
-                                                                'bg-warning/15 text-warning border-0'
+                                                        app.status === 'rejected' ? 'bg-destructive/15 text-destructive border-0' :
+                                                            'bg-warning/15 text-warning border-0'
                                                         }`}>
                                                         {app.status}
                                                     </Badge>
@@ -310,7 +389,7 @@ function DashboardContent() {
                                                     </div>
                                                 </div>
                                                 <Button variant="ghost" size="sm" asChild className="shrink-0 rounded-xl hover:bg-deep-twilight-100 hover:text-deep-twilight-700 font-semibold">
-                                                    <Link href={`/events/${event.id}/manage`} className="gap-2">
+                                                    <Link href={`/events/${event.slug}/manage`} className="gap-2">
                                                         Manage
                                                         <ArrowRight className="w-4 h-4" />
                                                     </Link>
@@ -457,7 +536,7 @@ function DashboardContent() {
                                 <div className="space-y-2">
                                     {events.slice(0, 3).map((event, idx) => (
                                         <Link
-                                            href={`/events/${event.id}`}
+                                            href={`/events/${event.slug}`}
                                             key={event.id}
                                             className="flex items-center gap-3 group p-3 rounded-xl bg-white/50 hover:bg-turquoise-surf-50/50 transition-all border border-transparent hover:border-turquoise-surf-100 hover:shadow-md"
                                         >

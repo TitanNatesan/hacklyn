@@ -19,6 +19,7 @@ import {
     GraduationCap,
     FolderGit2,
     Share2,
+    FileText,
     Loader2
 } from "lucide-react";
 import { toast } from "sonner";
@@ -28,6 +29,7 @@ import { BasicInfoStep } from "@/components/profile/BasicInfoStep";
 import { EducationWorkStep } from "@/components/profile/EducationWorkStep";
 import { ProjectsStep } from "@/components/profile/ProjectsStep";
 import { SocialsStep } from "@/components/profile/SocialsStep";
+import { ResumeStep } from "@/components/profile/ResumeStep";
 
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
@@ -36,7 +38,8 @@ const steps = [
     { id: 1, title: "Basic Info", icon: User, component: BasicInfoStep },
     { id: 2, title: "Education & Work", icon: GraduationCap, component: EducationWorkStep },
     { id: 3, title: "Projects", icon: FolderGit2, component: ProjectsStep },
-    { id: 4, title: "Socials", icon: Share2, component: SocialsStep },
+    { id: 4, title: "Resume", icon: FileText, component: ResumeStep },
+    { id: 5, title: "Socials", icon: Share2, component: SocialsStep },
 ];
 
 function CompleteProfileContent() {
@@ -79,6 +82,7 @@ function CompleteProfileContent() {
             hackathons: [],
             achievements: "",
             openSource: [],
+            resume: null,
             github: "",
             linkedin: "",
             twitter: "",
@@ -120,6 +124,7 @@ function CompleteProfileContent() {
                             skills: (profileData.skills || []).map(s => s.name || s),
                             location: profileData.location || "",
                             achievements: profileData.achievements || "",
+                            resume: profileData.resume || null,
                             github: profileData.github || "",
                             linkedin: profileData.linkedin || "",
                             twitter: profileData.twitter || "",
@@ -193,18 +198,19 @@ function CompleteProfileContent() {
                     data.skills?.length > 0
                 );
             case 1: // Education & Work
-                // Require at least one education entry
+                // Require at least one education entry (work experience is optional)
                 return data.education?.length > 0;
             case 2: // Projects
-                // Require at least one project
-                return data.projects?.length > 0;
-            case 3: // Socials
-                // Require at least one social link
+                // Projects are FULLY OPTIONAL - always mark as complete
+                return true;
+            case 3: // Resume
+                // Resume is optional but encouraged - always mark as complete
+                return true;
+            case 4: // Socials
+                // Require BOTH GitHub AND LinkedIn (as per requirements)
                 return !!(
-                    data.github?.trim() ||
-                    data.linkedin?.trim() ||
-                    data.twitter?.trim() ||
-                    data.website?.trim()
+                    data.github?.trim() &&
+                    data.linkedin?.trim()
                 );
             default:
                 return false;
@@ -225,6 +231,9 @@ function CompleteProfileContent() {
                 fieldsToValidate = ["projects"];
                 break;
             case 3:
+                fieldsToValidate = ["resume"];
+                break;
+            case 4:
                 fieldsToValidate = ["github", "linkedin"];
                 break;
         }
@@ -282,7 +291,12 @@ function CompleteProfileContent() {
                         }))
                     };
                     break;
-                case 3: // Socials
+                case 3: // Resume
+                    // Resume is uploaded directly via profileAPI.update in ResumeStep
+                    // No additional save needed here
+                    payload = {};
+                    break;
+                case 4: // Socials
                     payload = {
                         github: data.github || '',
                         linkedin: data.linkedin || '',
@@ -433,7 +447,8 @@ function CompleteProfileContent() {
                                 {currentStep === 0 && "Tell us about yourself"}
                                 {currentStep === 1 && "Add your educational background and work experience"}
                                 {currentStep === 2 && "Showcase your projects and hackathon experience"}
-                                {currentStep === 3 && "Connect your social profiles"}
+                                {currentStep === 3 && "Upload your resume for event applications"}
+                                {currentStep === 4 && "Connect your social profiles"}
                             </CardDescription>
                         </CardHeader>
                         <CardContent>

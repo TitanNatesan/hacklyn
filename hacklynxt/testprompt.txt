@@ -1,0 +1,9 @@
+better email verification logic 
+make a model (Emails: email; is_verified)
+the user can't apply or host an event unless the user complete his profile 
+profile completion includes - adding resume, github and linkeIn link and education details
+update the event model - organizer/owner should be the one and the others should be co-organizers they should have permissions to access each data (update frontend for the event organizer to add event co-organizer and give permission) 
+only the main organizer should have access to add co-organizer, co-organizer should have access as per the main organizer (permissions are - approving and reviewing teams/applicant; edit event details )
+
+make sure to access every backend fileds of the event through the frontend for applicant and host
+combine two tables (institution and company; with other field is_company) and update the whole backend as per the update (serializers.py, models.py, admin.py and all)

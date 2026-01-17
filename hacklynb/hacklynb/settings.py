@@ -9,6 +9,8 @@ from datetime import timedelta
 from dotenv import load_dotenv
 
 # Load environment variables
+
+# Reload triggered
 load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -17,7 +19,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Security
 SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-dev-key-change-in-production")
 DEBUG = os.environ.get("DEBUG", "True").lower() == "true"
-ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "*").split(",")
 
 # Frontend URL for OAuth redirects
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")

@@ -44,13 +44,8 @@ export default function EventsPage() {
         fetchEvents();
     }, []);
 
-    const handleApply = (eventId) => {
-        if (!authAPI.isAuthenticated()) {
-            toast.error("Please sign in to apply for events");
-            router.push("/auth?mode=login");
-            return;
-        }
-        router.push(`/dashboard/apply/${eventId}`);
+    const handleViewEvent = (slug) => {
+        router.push(`/events/${slug}`);
     };
 
     const filteredEvents = events.filter((event) => {
@@ -259,7 +254,7 @@ export default function EventsPage() {
                                         >
                                             <EventCard
                                                 event={event}
-                                                onApply={handleApply}
+                                                onApply={handleViewEvent}
                                                 variant={config.variant}
                                                 bannerSide={config.bannerSide}
                                             />
